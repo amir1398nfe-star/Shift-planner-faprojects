@@ -59,7 +59,7 @@ class _ShiftPlannerAppState extends State<ShiftPlannerApp> {
           secondary: const Color(0xFF10B981),
           surface: Colors.white,
         ),
-        cardTheme: CardTheme(
+        cardTheme: CardThemeData(
           elevation: 0,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           color: Colors.white,
@@ -81,7 +81,7 @@ class _ShiftPlannerAppState extends State<ShiftPlannerApp> {
   }
 }
 
-// ------------------- صفحه انتخاب زبان مدرن -------------------
+// ------------------- صفحه انتخاب زبان -------------------
 class LanguageSelectionScreen extends StatelessWidget {
   const LanguageSelectionScreen({super.key});
 
@@ -181,7 +181,7 @@ class LanguageSelectionScreen extends StatelessWidget {
   }
 }
 
-// ------------------- صفحه اصلی با تقویم مدرن -------------------
+// ------------------- صفحه اصلی -------------------
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -261,7 +261,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildStatItem(String label, String value, IconData icon) {
     return Column(
-      crossAxisAlignment: CrossAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
@@ -402,7 +402,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAlignment: CrossAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Center(
                 child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(10))),
@@ -460,7 +460,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// ------------------- صفحه نمودار گرافیکی پیشرفته -------------------
+// ------------------- صفحه گزارشات -------------------
 class AnalyticsScreen extends StatelessWidget {
   final Map<String, Map<String, dynamic>> logs;
   final ScreenshotController screenshotController = ScreenshotController();
@@ -495,7 +495,7 @@ class AnalyticsScreen extends StatelessWidget {
           color: const Color(0xFFF8FAFC),
           padding: const EdgeInsets.all(20.0),
           child: Column(
-            crossAlignment: CrossAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text('روند اضافه‌کاری ۴ ماه اخیر', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
               const SizedBox(height: 20),
@@ -569,7 +569,7 @@ class AnalyticsScreen extends StatelessWidget {
           ),
           const SizedBox(width: 16),
           Column(
-            crossAlignment: CrossAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(title, style: const TextStyle(fontSize: 13, color: Colors.grey)),
               const SizedBox(height: 4),
