@@ -30,6 +30,21 @@ jobs:
       - name: Generate Android Project Files
         run: flutter create . --platforms=android --org=com.amir.shiftplanner
 
+      - name: Fix Legacy Plugin Namespace
+        run: |
+          cat << 'EOF' >> android/build.gradle
+
+          subprojects {
+              afterEvaluate { project ->
+                  if (project.hasProperty('android')) {
+                      if (project.android.namespace == null) {
+                          project.android.namespace = "com.example.${project.name.replace('-', '_')}"
+                      }
+                  }
+              }
+          }
+          EOF
+
       - name: Install Dependencies
         run: flutter pub get
 
