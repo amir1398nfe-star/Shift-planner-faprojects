@@ -30,15 +30,26 @@ jobs:
       - name: Generate Android Project Files
         run: flutter create . --platforms=android --org=com.amir.app
 
+      - name: Add Storage Permissions to AndroidManifest
+        run: |
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" \/>\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" \/>' android/app/src/main/AndroidManifest.xml
+
       - name: Auto Replace Outdated Plugin & Class Names
         run: |
           sed -i -E 's/image_gallery_saver:.*/image_gallery_saver_plus: ^5.1.1/g' pubspec.yaml
           find lib/ -type f -name "*.dart" -exec sed -i 's/package:image_gallery_saver\/image_gallery_saver.dart/package:image_gallery_saver_plus\/image_gallery_saver_plus.dart/g' {} + || true
           find lib/ -type f -name "*.dart" -exec sed -i 's/ImageGallerySaver\./ImageGallerySaverPlus\./g' {} + || true
 
-      - name: Auto Fix Java 17 Compatibility
+      - name: Auto Fix Repositories & Java 17 Compatibility
         run: |
           cat << 'EOF' >> android/build.gradle
+
+          allprojects {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
 
           subprojects {
               afterEvaluate { project ->
