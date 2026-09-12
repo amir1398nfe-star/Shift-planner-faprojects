@@ -63,6 +63,7 @@ jobs:
             -dname "CN=Amir, OU=Dev, O=App, L=Tehran, S=Tehran, C=IR" \
             -storepass "AmirShift123" -keypass "AmirShift123"
           
+          # ساخت فایل key.properties در مسیر درست (android/) برای امضای خودکار توسط فلاتر
           cat << 'EOF' > android/key.properties
           storePassword=AmirShift123
           keyPassword=AmirShift123
@@ -70,27 +71,11 @@ jobs:
           storeFile=release.keystore
           EOF
 
-          # تنظیم پیکربندی امضا برای ساختار جدید build.gradle.kts
+          # فعال‌سازی استاندارد signingConfigs در android/app/build.gradle.kts با روش سازگار با نسخه‌های جدید
           BUILD_GRADLE="android/app/build.gradle.kts"
-          
           if [ -f "$BUILD_GRADLE" ]; then
-            echo "" >> $BUILD_GRADLE
-            echo "signingConfigs {" >> $BUILD_GRADLE
-            echo "    create(\"release\") {" >> $BUILD_GRADLE
-            echo "        storeFile = file(\"release.keystore\")" >> $BUILD_GRADLE
-            echo "        storePassword = \"AmirShift123\"" >> $BUILD_GRADLE
-            echo "        keyAlias = \"shiftplanner\"" >> $BUILD_GRADLE
-            echo "        keyPassword = \"AmirShift123\"" >> $BUILD_GRADLE
-            echo "    }" >> $BUILD_GRADLE
-            echo "}" >> $BUILD_GRADLE
-            echo "" >> $BUILD_GRADLE
-            echo "android {" >> $BUILD_GRADLE
-            echo "    buildTypes {" >> $BUILD_GRADLE
-            echo "        getByName(\"release\") {" >> $BUILD_GRADLE
-            echo "            signingConfig = signingConfigs.getByName(\"release\")" >> $BUILD_GRADLE
-            echo "        }" >> $BUILD_GRADLE
-            echo "    }" >> $BUILD_GRADLE
-            echo "}" >> $BUILD_GRADLE
+            # اضافه کردن تنظیمات signingConfig به بلوک buildTypes.release به صورت ایمن
+            sed -i 's/getByName("release") {/getByName("release") {\n            signingConfig = signingConfigs.getByName("release")/' $BUILD_GRADLE || true
           fi
 
           # دریافت پکیج‌ها و ساخت نهایی APK
