@@ -31,33 +31,33 @@ jobs:
         run: |
           REPO_DIR=$(pwd)
           
-          # ساخت یک پروژه کاملاً استاندارد و جدید که فلاتر آن را کاملاً تایید می‌کند
+          # ساخت پروژه جدید استاندارد
           flutter create -t app --org com.amir.shiftplanner --project-name shift_planner fresh_project
           
-          # کپی کردن کدهای دارت شما به پروژه جدید
+          # کپی کردن کدهای دارت کاربر
           rm -rf fresh_project/lib/*
           cp -r $REPO_DIR/lib/* fresh_project/lib/
           
-          # کپی کردن pubspec.yaml اصلی شما
+          # کپی کردن pubspec.yaml اصلی
           cp $REPO_DIR/pubspec.yaml fresh_project/pubspec.yaml
           
-          # کپی کردن پوشه assets در صورت وجود
+          # کپی کردن assets در صورت وجود
           if [ -d "$REPO_DIR/assets" ]; then
             cp -r $REPO_DIR/assets fresh_project/assets
           fi
 
-          # ورود به پوشه پروژه جدید برای ادامه مراحل
+          # ورود به پوشه پروژه جدید
           cd fresh_project
 
-          # اصلاح پکیج و نام کلاس‌های گالری
+          # اصلاح نام پکیج پلاس و کلاس‌ها
           sed -i -E 's/image_gallery_saver:.*/image_gallery_saver_plus: ^5.1.1/g' pubspec.yaml
           find lib/ -type f -name "*.dart" -exec sed -i 's/package:image_gallery_saver\/image_gallery_saver.dart/package:image_gallery_saver_plus\/image_gallery_saver_plus.dart/g' {} + || true
           find lib/ -type f -name "*.dart" -exec sed -i 's/ImageGallerySaver\./ImageGallerySaverPlus\./g' {} + || true
 
-          # افزودن دسترسی‌های گالری به اندروید مانیفست
+          # افزودن دسترسی‌ها به اندروید مانیفست
           sed -i '/<application/i \    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" \/>\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" \/>' android/app/src/main/AndroidManifest.xml
 
-          # ساخت کلید امضا مخصوص کافه بازار (Release Keystore)
+          # ساخت کلید امضا مخصوص کافه بازار
           keytool -genkeypair -alias shiftplanner -keyalg RSA -keysize 2048 -validity 10000 \
             -keystore android/app/release.keystore \
             -dname "CN=Amir, OU=Dev, O=App, L=Tehran, S=Tehran, C=IR" \
@@ -70,19 +70,34 @@ jobs:
           storeFile=release.keystore
           EOF
 
-          # تنظیمات امضای بیلد ریلیز در گریدل
-          sed -i '/ buildTypes {/i \    signingConfigs {\n        release {\n            storeFile file(\x27release.keystore\x27)\n            storePassword \x27AmirShift123\x27\n            keyAlias \x27shiftplanner\x27\n            keyPassword \x27AmirShift123\x27\n        }\n    }' android/app/build.gradle
-          sed -i '/ buildTypes {/,/ / s/minifyEnabled false/signingConfig signingConfigs.release\n        minifyEnabled false/' android/app/build.gradle
+          # تنظیم پیکربندی امضا در انتهای build.gradle (یا بررسی فرمت فایل)
+          BUILD_GRADLE="android/app/build.gradle"
+          if [ ! -f "$BUILD_GRADLE" ]; then
+            BUILD_GRADLE="android/app/build.gradle.kts"
+          fi
 
-          # تنظیم سازگاری با Java 17
-          sed -i 's/JavaVersion.VERSION_1_8/JavaVersion.VERSION_17/g' android/app/build.gradle || true
-          sed -i "s/jvmTarget = '1.8'/jvmTarget = '17'/g" android/app/build.gradle || true
+          echo "" >> $BUILD_GRADLE
+          echo "android {" >> $BUILD_GRADLE
+          echo "    signingConfigs {" >> $BUILD_GRADLE
+          echo "        release {" >> $BUILD_GRADLE
+          echo "            storeFile file('release.keystore')" >> $BUILD_GRADLE
+          echo "            storePassword 'AmirShift123'" >> $BUILD_GRADLE
+          echo "            keyAlias 'shiftplanner'" >> $BUILD_GRADLE
+          echo "            keyPassword 'AmirShift123'" >> $BUILD_GRADLE
+          echo "        }" >> $BUILD_GRADLE
+          echo "    }" >> $BUILD_GRADLE
+          echo "    buildTypes {" >> $BUILD_GRADLE
+          echo "        release {" >> $BUILD_GRADLE
+          echo "            signingConfig signingConfigs.release" >> $BUILD_GRADLE
+          echo "        }" >> $BUILD_GRADLE
+          echo "    }" >> $BUILD_GRADLE
+          echo "}" >> $BUILD_GRADLE
 
-          # دریافت پکیج‌ها و ساخت فایل APK امضاشده نهایی
+          # دریافت پکیج‌ها و ساخت نهایی APK
           flutter pub get
           flutter build apk --release --no-tree-shake-icons
 
-          # انتقال فایل خروجی به مسیر اصلی برای دانلود
+          # بازگرداندن فایل خروجی به ریشه مخزن
           mkdir -p $REPO_DIR/build/app/outputs/flutter-apk/
           cp build/app/outputs/flutter-apk/app-release.apk $REPO_DIR/build/app/outputs/flutter-apk/app-release.apk
 
