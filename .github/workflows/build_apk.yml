@@ -28,9 +28,14 @@ jobs:
           cache: true
 
       - name: Generate Android Project Files
-        run: flutter create . --platforms=android --org=com.amir.shiftplanner
+        run: flutter create . --platforms=android --org=com.amir.calculator
 
-      - name: Auto Fix Java 17 & Plugin Compatibility
+      - name: Auto Replace Outdated Plugin
+        run: |
+          sed -i 's/image_gallery_saver:/image_gallery_saver_plus:/g' pubspec.yaml
+          find lib/ -type f -name "*.dart" -exec sed -i 's/package:image_gallery_saver\/image_gallery_saver.dart/package:image_gallery_saver_plus\/image_gallery_saver_plus.dart/g' {} + || true
+
+      - name: Auto Fix Java 17 Compatibility
         run: |
           cat << 'EOF' >> android/build.gradle
 
