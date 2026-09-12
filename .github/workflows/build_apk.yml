@@ -27,8 +27,10 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Generate Android Project
-        run: flutter create . --platforms=android --org=com.amir.shiftplanner
+      - name: Clean and Recreate Android Project
+        run: |
+          rm -rf android
+          flutter create . --platforms=android --org=com.amir.shiftplanner
 
       - name: Add Storage Permissions to AndroidManifest
         run: |
@@ -104,6 +106,10 @@ jobs:
               }
           }
           EOF
+
+      - name: Allow Project Repositories in settings.gradle
+        run: |
+          sed -i 's/FAIL_ON_PROJECT_REPOS/PREFER_PROJECT/g' android/settings.gradle || true
 
       - name: Install Dependencies
         run: flutter pub get
