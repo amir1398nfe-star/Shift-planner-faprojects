@@ -73,14 +73,19 @@ jobs:
           }
           EOF
 
+      - name: Clean Workspace
+        run: flutter clean
+
       - name: Install Dependencies
         run: flutter pub get
 
       - name: Build Universal APK
-        run: flutter build apk --release
+        run: flutter build apk --release --no-tree-shake-icons
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: |
+            build/app/outputs/flutter-apk/app-release.apk
+            android/app/build/outputs/apk/release/app-release.apk
