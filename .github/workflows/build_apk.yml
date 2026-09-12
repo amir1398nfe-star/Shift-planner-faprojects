@@ -40,16 +40,11 @@ jobs:
           find lib/ -type f -name "*.dart" -exec sed -i 's/package:image_gallery_saver\/image_gallery_saver.dart/package:image_gallery_saver_plus\/image_gallery_saver_plus.dart/g' {} + || true
           find lib/ -type f -name "*.dart" -exec sed -i 's/ImageGallerySaver\./ImageGallerySaverPlus\./g' {} + || true
 
-      - name: Auto Fix Repositories & Java 17 Compatibility
+      - name: Auto Fix Java 17 Compatibility
         run: |
+          sed -i 's/JavaVersion.VERSION_1_8/JavaVersion.VERSION_17/g' android/app/build.gradle || true
+          sed -i "s/jvmTarget = '1.8'/jvmTarget = '17'/g" android/app/build.gradle || true
           cat << 'EOF' >> android/build.gradle
-
-          allprojects {
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
 
           subprojects {
               afterEvaluate { project ->
@@ -73,9 +68,6 @@ jobs:
           }
           EOF
 
-      - name: Clean Workspace
-        run: flutter clean
-
       - name: Install Dependencies
         run: flutter pub get
 
@@ -86,6 +78,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: app-release-apk
-          path: |
-            build/app/outputs/flutter-apk/app-release.apk
-            android/app/build/outputs/apk/release/app-release.apk
+          path: build/app/outputs/flutter-apk/app-release.apk
