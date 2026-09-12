@@ -70,28 +70,28 @@ jobs:
           storeFile=release.keystore
           EOF
 
-          # تنظیم پیکربندی امضا در انتهای build.gradle (یا بررسی فرمت فایل)
-          BUILD_GRADLE="android/app/build.gradle"
-          if [ ! -f "$BUILD_GRADLE" ]; then
-            BUILD_GRADLE="android/app/build.gradle.kts"
+          # تنظیم پیکربندی امضا برای ساختار جدید build.gradle.kts
+          BUILD_GRADLE="android/app/build.gradle.kts"
+          
+          if [ -f "$BUILD_GRADLE" ]; then
+            echo "" >> $BUILD_GRADLE
+            echo "signingConfigs {" >> $BUILD_GRADLE
+            echo "    create(\"release\") {" >> $BUILD_GRADLE
+            echo "        storeFile = file(\"release.keystore\")" >> $BUILD_GRADLE
+            echo "        storePassword = \"AmirShift123\"" >> $BUILD_GRADLE
+            echo "        keyAlias = \"shiftplanner\"" >> $BUILD_GRADLE
+            echo "        keyPassword = \"AmirShift123\"" >> $BUILD_GRADLE
+            echo "    }" >> $BUILD_GRADLE
+            echo "}" >> $BUILD_GRADLE
+            echo "" >> $BUILD_GRADLE
+            echo "android {" >> $BUILD_GRADLE
+            echo "    buildTypes {" >> $BUILD_GRADLE
+            echo "        getByName(\"release\") {" >> $BUILD_GRADLE
+            echo "            signingConfig = signingConfigs.getByName(\"release\")" >> $BUILD_GRADLE
+            echo "        }" >> $BUILD_GRADLE
+            echo "    }" >> $BUILD_GRADLE
+            echo "}" >> $BUILD_GRADLE
           fi
-
-          echo "" >> $BUILD_GRADLE
-          echo "android {" >> $BUILD_GRADLE
-          echo "    signingConfigs {" >> $BUILD_GRADLE
-          echo "        release {" >> $BUILD_GRADLE
-          echo "            storeFile file('release.keystore')" >> $BUILD_GRADLE
-          echo "            storePassword 'AmirShift123'" >> $BUILD_GRADLE
-          echo "            keyAlias 'shiftplanner'" >> $BUILD_GRADLE
-          echo "            keyPassword 'AmirShift123'" >> $BUILD_GRADLE
-          echo "        }" >> $BUILD_GRADLE
-          echo "    }" >> $BUILD_GRADLE
-          echo "    buildTypes {" >> $BUILD_GRADLE
-          echo "        release {" >> $BUILD_GRADLE
-          echo "            signingConfig signingConfigs.release" >> $BUILD_GRADLE
-          echo "        }" >> $BUILD_GRADLE
-          echo "    }" >> $BUILD_GRADLE
-          echo "}" >> $BUILD_GRADLE
 
           # دریافت پکیج‌ها و ساخت نهایی APK
           flutter pub get
