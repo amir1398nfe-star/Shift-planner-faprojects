@@ -30,15 +30,26 @@ jobs:
       - name: Generate Android Project Files
         run: flutter create . --platforms=android --org=com.amir.shiftplanner
 
-      - name: Fix Legacy Plugin Namespace
+      - name: Auto Fix Java 17 & Plugin Compatibility
         run: |
           cat << 'EOF' >> android/build.gradle
 
           subprojects {
               afterEvaluate { project ->
                   if (project.hasProperty('android')) {
-                      if (project.android.namespace == null) {
-                          project.android.namespace = "com.example.${project.name.replace('-', '_')}"
+                      project.android {
+                          if (namespace == null) {
+                              namespace = "com.example.${project.name.replace('-', '_')}"
+                          }
+                          compileOptions {
+                              sourceCompatibility JavaVersion.VERSION_17
+                              targetCompatibility JavaVersion.VERSION_17
+                          }
+                      }
+                  }
+                  tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+                      kotlinOptions {
+                          jvmTarget = '17'
                       }
                   }
               }
