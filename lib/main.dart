@@ -52,11 +52,11 @@ class _ShiftPlannerAppState extends State<ShiftPlannerApp> {
       theme: ThemeData(
         useMaterial3: true,
         fontFamily: 'Roboto',
-        scaffoldBackgroundColor: const Color(0xFFF8FAFC), // Slate 50
+        scaffoldBackgroundColor: const Color(0xFFF8FAFC),
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF6366F1), // Indigo Primary
+          seedColor: const Color(0xFF6366F1),
           primary: const Color(0xFF6366F1),
-          secondary: const Color(0xFF10B981), // Emerald
+          secondary: const Color(0xFF10B981),
           surface: Colors.white,
         ),
         cardTheme: CardTheme(
@@ -129,9 +129,9 @@ class LanguageSelectionScreen extends StatelessWidget {
                     style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
                   ),
                   const SizedBox(height: 8),
-                  Text(
+                  const Text(
                     'لطفاً زبان برنامه را انتخاب کنید',
-                    style: TextStyle(fontSize: 14, color: Colors.slate.shade300),
+                    style: TextStyle(fontSize: 14, color: Color(0xFF94A3B8)),
                   ),
                   const SizedBox(height: 40),
                   _buildLangBtn(context, 'فارسی (Persian)', 'fa', '🇮🇷'),
@@ -229,7 +229,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // کارت خلاصه بالای صفحه
   Widget _buildSummaryCard() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -403,7 +402,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAlignment.start,
+            crossAlignment: CrossAlignment.start,
             children: [
               Center(
                 child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(10))),
@@ -496,7 +495,7 @@ class AnalyticsScreen extends StatelessWidget {
           color: const Color(0xFFF8FAFC),
           padding: const EdgeInsets.all(20.0),
           child: Column(
-            crossAxisAlignment: CrossAlignment.start,
+            crossAlignment: CrossAlignment.start,
             children: [
               const Text('روند اضافه‌کاری ۴ ماه اخیر', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
               const SizedBox(height: 20),
@@ -570,7 +569,7 @@ class AnalyticsScreen extends StatelessWidget {
           ),
           const SizedBox(width: 16),
           Column(
-            crossAxisAlignment: CrossAlignment.start,
+            crossAlignment: CrossAlignment.start,
             children: [
               Text(title, style: const TextStyle(fontSize: 13, color: Colors.grey)),
               const SizedBox(height: 4),
