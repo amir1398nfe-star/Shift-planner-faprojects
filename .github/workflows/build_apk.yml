@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Android APK for CafeBazaar
 
 on:
   push:
@@ -27,8 +27,8 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Generate Android Project Files
-        run: flutter create . --platforms=android --org=com.amir.app
+      - name: Generate Android Project
+        run: flutter create . --platforms=android --org=com.amir.shiftplanner
 
       - name: Add Storage Permissions to AndroidManifest
         run: |
@@ -40,16 +40,39 @@ jobs:
           find lib/ -type f -name "*.dart" -exec sed -i 's/package:image_gallery_saver\/image_gallery_saver.dart/package:image_gallery_saver_plus\/image_gallery_saver_plus.dart/g' {} + || true
           find lib/ -type f -name "*.dart" -exec sed -i 's/ImageGallerySaver\./ImageGallerySaverPlus\./g' {} + || true
 
-      - name: Fix Repositories in settings.gradle
+      - name: Generate Release Keystore
         run: |
-          cat << 'EOF' >> android/settings.gradle
+          keytool -genkeypair -alias shiftplanner -keyalg RSA -keysize 2048 -validity 10000 \
+            -keystore android/app/release.keystore \
+            -dname "CN=Amir, OU=Dev, O=App, L=Tehran, S=Tehran, C=IR" \
+            -storepass "AmirShift123" -keypass "AmirShift123"
+          
+          cat << 'EOF' > android/key.properties
+          storePassword=AmirShift123
+          keyPassword=AmirShift123
+          keyAlias=shiftplanner
+          storeFile=release.keystore
+          EOF
 
-          dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
-              repositories {
-                  google()
-                  mavenCentral()
-                  maven { url 'https://storage.googleapis.com/download.flutter.io' }
+      - name: Configure Release Signing in build.gradle
+        run: |
+          cat << 'EOF' >> android/app/build.gradle
+
+          android {
+              signingConfigs {
+                  release {
+                      storeFile file('release.keystore')
+                      storePassword 'AmirShift123'
+                      keyAlias 'shiftplanner'
+                      keyPassword 'AmirShift123'
+                  }
+              }
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.release
+                      minifyEnabled false
+                      shrinkResources false
+                  }
               }
           }
           EOF
@@ -65,7 +88,7 @@ jobs:
                   if (project.hasProperty('android')) {
                       project.android {
                           if (namespace == null) {
-                              namespace = "com.example.${project.name.replace('-', '_')}"
+                              namespace = "com.amir.shiftplanner.${project.name.replace('-', '_')}"
                           }
                           compileOptions {
                               sourceCompatibility JavaVersion.VERSION_17
@@ -85,11 +108,11 @@ jobs:
       - name: Install Dependencies
         run: flutter pub get
 
-      - name: Build Universal APK
+      - name: Build Signed Universal APK
         run: flutter build apk --release --no-tree-shake-icons
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-apk
+          name: shift-planner-release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
