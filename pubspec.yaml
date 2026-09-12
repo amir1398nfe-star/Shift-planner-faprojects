@@ -16,7 +16,7 @@ dependencies:
   fl_chart: ^0.66.2
   screenshot: ^3.0.0
   image_gallery_saver: ^2.0.3
-  intl: ^0.19.0
+  intl: ^0.20.3
 
 dev_dependencies:
   flutter_test:
