@@ -27,32 +27,37 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Clean and Recreate Android Project
+      - name: Create Fresh Supported Project & Migrate Files
         run: |
-          rm -rf android build .dart_tool
-          flutter create . --platforms=android --org=com.amir.shiftplanner
+          REPO_DIR=$(pwd)
+          
+          # ساخت یک پروژه کاملاً استاندارد و جدید که فلاتر آن را کاملاً تایید می‌کند
+          flutter create -t app --org com.amir.shiftplanner --project-name shift_planner fresh_project
+          
+          # کپی کردن کدهای دارت شما به پروژه جدید
+          rm -rf fresh_project/lib/*
+          cp -r $REPO_DIR/lib/* fresh_project/lib/
+          
+          # کپی کردن pubspec.yaml اصلی شما
+          cp $REPO_DIR/pubspec.yaml fresh_project/pubspec.yaml
+          
+          # کپی کردن پوشه assets در صورت وجود
+          if [ -d "$REPO_DIR/assets" ]; then
+            cp -r $REPO_DIR/assets fresh_project/assets
+          fi
 
-      - name: Add Storage Permissions to AndroidManifest
-        run: |
-          sed -i '/<application/i \    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" \/>\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" \/>' android/app/src/main/AndroidManifest.xml
+          # ورود به پوشه پروژه جدید برای ادامه مراحل
+          cd fresh_project
 
-      - name: Auto Replace Outdated Plugin & Class Names
-        run: |
+          # اصلاح پکیج و نام کلاس‌های گالری
           sed -i -E 's/image_gallery_saver:.*/image_gallery_saver_plus: ^5.1.1/g' pubspec.yaml
           find lib/ -type f -name "*.dart" -exec sed -i 's/package:image_gallery_saver\/image_gallery_saver.dart/package:image_gallery_saver_plus\/image_gallery_saver_plus.dart/g' {} + || true
           find lib/ -type f -name "*.dart" -exec sed -i 's/ImageGallerySaver\./ImageGallerySaverPlus\./g' {} + || true
 
-      - name: Fix Gradle Wrapper Version
-        run: |
-          mkdir -p android/gradle/wrapper
-          echo "distributionBase=GRADLE_USER_HOME" > android/gradle/wrapper/gradle-wrapper.properties
-          echo "distributionPath=wrapper/dists" >> android/gradle/wrapper/gradle-wrapper.properties
-          echo "distributionUrl=https\://services.gradle.org/distributions/gradle-8.7-bin.zip" >> android/gradle/wrapper/gradle-wrapper.properties
-          echo "zipStoreBase=GRADLE_USER_HOME" >> android/gradle/wrapper/gradle-wrapper.properties
-          echo "zipStorePath=wrapper/dists" >> android/gradle/wrapper/gradle-wrapper.properties
+          # افزودن دسترسی‌های گالری به اندروید مانیفست
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" \/>\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" \/>' android/app/src/main/AndroidManifest.xml
 
-      - name: Generate Release Keystore
-        run: |
+          # ساخت کلید امضا مخصوص کافه بازار (Release Keystore)
           keytool -genkeypair -alias shiftplanner -keyalg RSA -keysize 2048 -validity 10000 \
             -keystore android/app/release.keystore \
             -dname "CN=Amir, OU=Dev, O=App, L=Tehran, S=Tehran, C=IR" \
@@ -65,66 +70,21 @@ jobs:
           storeFile=release.keystore
           EOF
 
-      - name: Configure Release Signing in build.gradle
-        run: |
-          cat << 'EOF' >> android/app/build.gradle
+          # تنظیمات امضای بیلد ریلیز در گریدل
+          sed -i '/ buildTypes {/i \    signingConfigs {\n        release {\n            storeFile file(\x27release.keystore\x27)\n            storePassword \x27AmirShift123\x27\n            keyAlias \x27shiftplanner\x27\n            keyPassword \x27AmirShift123\x27\n        }\n    }' android/app/build.gradle
+          sed -i '/ buildTypes {/,/ / s/minifyEnabled false/signingConfig signingConfigs.release\n        minifyEnabled false/' android/app/build.gradle
 
-          android {
-              signingConfigs {
-                  release {
-                      storeFile file('release.keystore')
-                      storePassword 'AmirShift123'
-                      keyAlias 'shiftplanner'
-                      keyPassword 'AmirShift123'
-                  }
-              }
-              buildTypes {
-                  release {
-                      signingConfig signingConfigs.release
-                      minifyEnabled false
-                      shrinkResources false
-                  }
-              }
-          }
-          EOF
-
-      - name: Auto Fix Java 17 Compatibility
-        run: |
+          # تنظیم سازگاری با Java 17
           sed -i 's/JavaVersion.VERSION_1_8/JavaVersion.VERSION_17/g' android/app/build.gradle || true
           sed -i "s/jvmTarget = '1.8'/jvmTarget = '17'/g" android/app/build.gradle || true
-          cat << 'EOF' >> android/build.gradle
 
-          subprojects {
-              afterEvaluate { project ->
-                  if (project.hasProperty('android')) {
-                      project.android {
-                          if (namespace == null) {
-                              namespace = "com.amir.shiftplanner.${project.name.replace('-', '_')}"
-                          }
-                          compileOptions {
-                              sourceCompatibility JavaVersion.VERSION_17
-                              targetCompatibility JavaVersion.VERSION_17
-                          }
-                      }
-                  }
-                  tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
-                      kotlinOptions {
-                          jvmTarget = '17'
-                      }
-                  }
-              }
-          }
-          EOF
+          # دریافت پکیج‌ها و ساخت فایل APK امضاشده نهایی
+          flutter pub get
+          flutter build apk --release --no-tree-shake-icons
 
-      - name: Allow Project Repositories in settings.gradle
-        run: |
-          sed -i 's/FAIL_ON_PROJECT_REPOS/PREFER_PROJECT/g' android/settings.gradle || true
-
-      - name: Install Dependencies
-        run: flutter pub get
-
-      - name: Build Signed Universal APK
-        run: flutter build apk --release --no-tree-shake-icons
+          # انتقال فایل خروجی به مسیر اصلی برای دانلود
+          mkdir -p $REPO_DIR/build/app/outputs/flutter-apk/
+          cp build/app/outputs/flutter-apk/app-release.apk $REPO_DIR/build/app/outputs/flutter-apk/app-release.apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
