@@ -263,7 +263,7 @@ class _MainContainerScreenState extends State<MainContainerScreen> {
     setState(() {
       monthlyData = newData;
     });
-    _saveAllData(); // ذخیره بلافاصله بعد از تغییرات تقویم یا یادداشت
+    _saveAllData(); 
   }
 
   void changeMonth(int year, int monthIndex) {
@@ -640,7 +640,6 @@ class ShamsiCalendarScreen extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text('$dayNum', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isTodayFlag ? Colors.amber.shade900 : textColor)),
-                          // علامت مخصوص یادداشت روی سلول تقویم
                           if (note != null && note.trim().isNotEmpty) ...[
                             const SizedBox(width: 2),
                             const Icon(Icons.note, size: 10, color: Colors.blueAccent),
@@ -969,7 +968,6 @@ class SettingsScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) {
-        // تغییر زبان برنامه به صورت زنده و ذخیره آن
         return AlertDialog(
           title: Text(strings.get('select_language')),
           content: Column(
@@ -991,7 +989,6 @@ class SettingsScreen extends StatelessWidget {
               ),
               ListTile(
                 title: const Text('Deutsch'),
-                onTuple: () {},
                 onTap: () {
                   ShiftTrackerApp.setLocale(context, 'de');
                   Navigator.pop(context);
