@@ -152,7 +152,6 @@ class _ShiftTrackerAppSt extends State<ShiftTrackerApp> {
   }
 }
 
-// صفحه انتخاب زبان اولیه در اولین اجرای اپ
 class LanguageSelectionScreen extends StatelessWidget {
   final Function(String) onSelected;
   const LanguageSelectionScreen({Key? key, required this.onSelected}) : super(key: key);
@@ -215,7 +214,7 @@ class _MainContainerScreenState extends State<MainContainerScreen> {
   String mainShiftType = '';
   String subShiftDetail = '';
   int currentMonthIndex = 5; // شهریور
-  int currentYear = 1404;
+  int currentYear = 1405;    // بروز شده به سال ۱۴۰۵
 
   final List<String> shamsiMonths = [
     'فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور',
@@ -228,7 +227,6 @@ class _MainContainerScreenState extends State<MainContainerScreen> {
     _loadAllData();
   }
 
-  // بارگذاری اطلاعات ذخیره شده تقویم و شیفت‌ها از حافظه
   Future<void> _loadAllData() async {
     final prefs = await SharedPreferences.getInstance();
     String? storedData = prefs.getString('saved_monthly_tracker_data');
@@ -251,7 +249,6 @@ class _MainContainerScreenState extends State<MainContainerScreen> {
     }
   }
 
-  // ذخیره دائمی اطلاعات تقویم و یادداشت‌ها
   Future<void> _saveAllData() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('saved_monthly_tracker_data', jsonEncode(monthlyData));
@@ -486,8 +483,9 @@ class ShamsiCalendarScreen extends StatelessWidget {
     onMonthChanged(y, m);
   }
 
+  // تنظیم روی ۲۲ شهریور ۱۴۰۵ به عنوان امروز
   bool _isToday(int dayNum) {
-    return currentYear == 1404 && currentMonthIndex == 5 && dayNum == 25;
+    return currentYear == 1405 && currentMonthIndex == 5 && dayNum == 22;
   }
 
   String _getDefaultDayShiftLabel(int dayNum) {
@@ -499,6 +497,7 @@ class ShamsiCalendarScreen extends StatelessWidget {
     if (mainShiftType == 'یک هفته روز یک هفته عصر') {
       bool isFirstHalfWeek = ((dayNum - 1) ~/ 7) % 2 == 0;
       if (subShiftDetail == 'این هفته صبح‌کار') {
+        // اصلاح جهت نمایش برای انطباق با انتخاب کاربر
         return isFirstHalfWeek ? 'روزکار' : 'عصرکار';
       } else {
         return isFirstHalfWeek ? 'عصرکار' : 'روزکار';
@@ -991,7 +990,7 @@ class SettingsScreen extends StatelessWidget {
                 title: const Text('Deutsch'),
                 onTap: () {
                   ShiftTrackerApp.setLocale(context, 'de');
-                  Navigator.pop(context);
+                  Navigator.pop(context,);
                 },
               ),
             ],
