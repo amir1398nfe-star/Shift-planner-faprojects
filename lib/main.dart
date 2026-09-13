@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shamsi_date/shamsi_date.dart';
 import 'dart:convert';
 
 void main() async {
@@ -213,8 +214,10 @@ class _MainContainerScreenState extends State<MainContainerScreen> {
   Map<String, Map<String, dynamic>> monthlyData = {};
   String mainShiftType = '';
   String subShiftDetail = '';
-  int currentMonthIndex = 5; // شهریور
-  int currentYear = 1405;    // بروز شده به سال ۱۴۰۵
+  
+  // تنظیم خودکار ماه و سال جاری بر اساس تاریخ آنلاین/سیستمی دستگاه
+  int currentMonthIndex = Jalali.now().month - 1;
+  int currentYear = Jalali.now().year;
 
   final List<String> shamsiMonths = [
     'فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور',
@@ -483,9 +486,12 @@ class ShamsiCalendarScreen extends StatelessWidget {
     onMonthChanged(y, m);
   }
 
-  // تنظیم روی ۲۲ شهریور ۱۴۰۵ به عنوان امروز
+  // تشخیص خودکار و آنلاین روز امروز بر اساس تاریخ سیستم/شبکه دستگاه
   bool _isToday(int dayNum) {
-    return currentYear == 1405 && currentMonthIndex == 5 && dayNum == 22;
+    Jalali jNow = Jalali.now();
+    return currentYear == jNow.year && 
+           currentMonthIndex == (jNow.month - 1) && 
+           dayNum == jNow.day;
   }
 
   String _getDefaultDayShiftLabel(int dayNum) {
@@ -497,7 +503,6 @@ class ShamsiCalendarScreen extends StatelessWidget {
     if (mainShiftType == 'یک هفته روز یک هفته عصر') {
       bool isFirstHalfWeek = ((dayNum - 1) ~/ 7) % 2 == 0;
       if (subShiftDetail == 'این هفته صبح‌کار') {
-        // اصلاح جهت نمایش برای انطباق با انتخاب کاربر
         return isFirstHalfWeek ? 'روزکار' : 'عصرکار';
       } else {
         return isFirstHalfWeek ? 'عصرکار' : 'روزکار';
@@ -990,7 +995,7 @@ class SettingsScreen extends StatelessWidget {
                 title: const Text('Deutsch'),
                 onTap: () {
                   ShiftTrackerApp.setLocale(context, 'de');
-                  Navigator.pop(context,);
+                  Navigator.pop(context);
                 },
               ),
             ],
