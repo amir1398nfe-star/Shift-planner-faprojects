@@ -29,7 +29,6 @@ class CalendarUtils {
 
   // گرفتن نام روز هفته دقیق با تقویم شمسی
   static String getPersianDayOfWeek(Jalali date) {
-    // در پکیج shamsi_date مقدار weekDay از 1 (شنبه) تا 7 (جمعه) است
     switch (date.weekDay) {
       case 1: return 'شنبه';
       case 2: return 'یکشنبه';
@@ -40,6 +39,20 @@ class CalendarUtils {
       case 7: return 'جمعه';
       default: return '';
     }
+  }
+
+  // نام ماه‌های شمسی
+  static String getPersianMonthName(int month) {
+    const months = [
+      'فروردین', 'اردیبهشت', 'خرداد', 
+      'تیر', 'مرداد', 'شهریور', 
+      'مهر', 'آبان', 'آذر', 
+      'دی', 'بهمن', 'اسفند'
+    ];
+    if (month >= 1 && month <= 12) {
+      return months[month - 1];
+    }
+    return '';
   }
 }
 
@@ -100,10 +113,11 @@ class _WorkCalendarScreenState extends State<WorkCalendarScreen> {
   Widget build(BuildContext context) {
     Jalali today = Jalali.now();
     String dayName = CalendarUtils.getPersianDayOfWeek(today);
+    String monthName = CalendarUtils.getPersianMonthName(today.month);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('تقویم شیفت‌ها - امروز: $dayName ${today.day} ${today.formatter.monthName}'),
+        title: Text('تقویم شیفت‌ها - امروز: $dayName ${today.day} $monthName'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
