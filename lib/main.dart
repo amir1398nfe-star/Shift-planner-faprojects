@@ -326,7 +326,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     },
   };
 
-  String t(String key) => _strings[widget.language]?[key] ?? _strings['fa']![key]!}
+  String t(String key) => _strings[widget.language]?[key] ?? _strings['fa']![key]!;
 
   @override
   void initState() {
