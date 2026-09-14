@@ -147,7 +147,19 @@ class _WorkCalendarScreenState extends State<WorkCalendarScreen> {
   @override
   Widget build(BuildContext context) {
     Jalali today = Jalali.now();
-    int daysInMonth = today.month <= 6 ? 31 : (today.month <= 11 ? 30 : (today.isLeap() ? 30 : 29));
+    
+    // محاسبه دقیق تعداد روزهای ماه شمسی بدون خطای کبیسه
+    int daysInMonth;
+    if (today.month <= 6) {
+      daysInMonth = 31;
+    } else if (today.month <= 11) {
+      daysInMonth = 30;
+    } else {
+      // بررسی سال کبیسه برای اسفند ماه
+      PersianDate pDate = PersianDate();
+      bool leap = pDate.isLeap(today.year);
+      daysInMonth = leap ? 30 : 29;
+    }
 
     return Scaffold(
       appBar: AppBar(
