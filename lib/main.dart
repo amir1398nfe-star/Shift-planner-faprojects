@@ -53,8 +53,8 @@ class WorkCalendarScreen extends StatefulWidget {
 class _WorkCalendarScreenState extends State<WorkCalendarScreen> {
   final ScreenshotController _screenshotController = ScreenshotController();
   
-  // وضعیت شیفت انتخابی (تست)
-  String currentShift = نامشخص;
+  // وضعیت شیفت انتخابی
+  String currentShift = 'نامشخص';
 
   // اصلاح منطق شیفت‌ها (تعیین درست روزکار و عصرکار)
   void assignShift(bool isDayShift) {
@@ -70,11 +70,9 @@ class _WorkCalendarScreenState extends State<WorkCalendarScreen> {
   // ذخیره عکس نمودار در گالری
   Future<void> _captureAndSaveChart() async {
     try {
-      // اسکرین‌شات گرفتن از ویجت نمودار
       final imageUint8List = await _screenshotController.capture();
       
       if (imageUint8List != null) {
-        // ذخیره در گالری با استفاده از پکیج image_gallery_saver_plus
         final result = await ImageGallerySaverPlus.saveImage(
           imageUint8List,
           quality: 100,
