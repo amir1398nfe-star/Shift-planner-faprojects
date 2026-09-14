@@ -256,8 +256,6 @@ class MainDashboardScreen extends StatefulWidget {
 class _MainDashboardScreenState extends State<MainDashboardScreen> {
   final ScreenshotController _screenshotController = ScreenshotController();
 
-  // ساختار داده‌ای روزانه برای ذخیره‌سازی داده‌های هر ماه
-  // کلید مثل "1405-6-15"
   Map<String, Map<String, dynamic>> _monthData = {};
   int _selectedDay = Jalali.now().day;
 
@@ -412,7 +410,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // مقادیر کل ماه (شروع از صفر)
             Row(
               children: [
                 Expanded(
@@ -426,7 +423,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
             ),
             const SizedBox(height: 20),
 
-            // تقویم ماهانه با نام کامل روزهای هفته و جمعه قرمز
             Card(
               elevation: 3,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -436,7 +432,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.between,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text('${today.formatter.yyyy}/${today.formatter.mm}',
                             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF3F51B5))),
@@ -445,7 +441,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                     ),
                     const Divider(height: 20),
 
-                    // نام کامل روزهای هفته (جمعه قرمز)
                     const Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
@@ -476,11 +471,8 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                         }
                         int dayNum = index - (startWeekday - 2);
                         bool isSelected = _selectedDay == dayNum;
-
-                        // بررسی روز جمعه (ستون ۷)
                         bool isFriday = (index % 7) == 6;
 
-                        // دریافت مقادیر ثبت‌شده برای این روز
                         String shiftCode = _getDayData(dayNum, 'shift', defaultValue: widget.currentWeekShift);
                         bool isDailyLeave = _getDayData(dayNum, 'daily_leave', defaultValue: false);
                         double hourlyLeaveVal = _getDayData(dayNum, 'hourly_leave', defaultValue: 0.0);
@@ -537,19 +529,16 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                                         style: TextStyle(fontSize: 8, color: isSelected ? Colors.white70 : Colors.grey.shade800),
                                         overflow: TextOverflow.ellipsis,
                                       ),
-                                    // مقادیر اضافه کاری با رنگ سبز روی روز
                                     if (overtimeVal > 0)
                                       Text(
                                         '+${overtimeVal} ک',
                                         style: TextStyle(fontSize: 7, fontWeight: FontWeight.bold, color: isSelected ? Colors.greenAccent : Colors.green.shade800),
                                       ),
-                                    // مقادیر مرخصی ساعتی با رنگ نارنجی روی روز
                                     if (hourlyLeaveVal > 0)
                                       Text(
                                         'م.${hourlyLeaveVal}س',
                                         style: TextStyle(fontSize: 7, fontWeight: FontWeight.bold, color: isSelected ? Colors.orangeAccent : Colors.orange.shade800),
                                       ),
-                                    // نشانگر یادداشت با رنگ بنفش/صورتی متمایز
                                     if (noteVal.isNotEmpty)
                                       Container(
                                         margin: const EdgeInsets.only(top: 1),
@@ -577,7 +566,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
             ),
             const SizedBox(height: 16),
 
-            // پنل مدیریت روز انتخاب شده (ثبت شیفت، مرخصی‌ها، اضافه‌کاری و یادداشت با رنگ‌های مجزا)
             Card(
               elevation: 2,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -589,7 +577,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                     Text(t('selectDay') + ' (روز $_selectedDay):', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                     const SizedBox(height: 10),
                     
-                    // دکمه‌های شیفت
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
@@ -600,7 +587,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                     ),
                     const Divider(height: 16),
 
-                    // دکمه‌های مرخصی و اضافه‌کاری با رنگ‌های متمایز
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
@@ -608,7 +594,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                           style: ElevatedButton.styleFrom(backgroundColor: Colors.deepOrange, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 8)),
                           onPressed: () => _toggleDailyLeave(_selectedDay),
                           icon: const Icon(Icons.free_breakfast, size: 16),
-                          label: Text(_getDayData(_selectedDay, 'daily_leave', defaultValue: false) ? 'لغو مرخصی روزانه' : t('dailyLeave'), style: const TextStyle(fontSize: 11)),
+                          label: Text(_getDayData(_selectedDay, 'daily_leave', defaultValue: false) ? 'لغو مرخصی' : t('dailyLeave'), style: const TextStyle(fontSize: 11)),
                         ),
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(backgroundColor: Colors.orange.shade700, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 8)),
@@ -626,7 +612,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                     ),
                     const SizedBox(height: 10),
 
-                    // بخش یادداشت با رنگ مجزا و فیلد متنی اختصاصی
                     TextField(
                       controller: TextEditingController(text: _getDayData(_selectedDay, 'note', defaultValue: ''))
                         ..selection = TextSelection.fromPosition(TextPosition(offset: (_getDayData(_selectedDay, 'note', defaultValue: '') as String).length)),
@@ -647,7 +632,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
             ),
             const SizedBox(height: 20),
 
-            // نمودار واقعی با fl_chart
             Screenshot(
               controller: _screenshotController,
               child: Container(
@@ -669,9 +653,9 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                           alignment: BarChartAlignment.spaceAround,
                           maxY: 20,
                           barGroups: [
-                            BarChartGroupData(x: 0, barRodData: BarChartRodData(toY: _countShiftType('day').toDouble(), color: Colors.amber, width: 18, borderRadius: BorderRadius.circular(6))),
-                            BarChartGroupData(x: 1, barRodData: BarChartRodData(toY: _countShiftType('evening').toDouble(), color: Colors.blue, width: 18, borderRadius: BorderRadius.circular(6))),
-                            BarChartGroupData(x: 2, barRodData: BarChartRodData(toY: _countShiftType('night').toDouble(), color: Colors.purple, width: 18, borderRadius: BorderRadius.circular(6))),
+                            BarChartGroupData(x: 0, rod: BarChartRodData(toY: _countShiftType('day').toDouble(), color: Colors.amber, width: 18, borderRadius: BorderRadius.circular(6))),
+                            BarChartGroupData(x: 1, rod: BarChartRodData(toY: _countShiftType('evening').toDouble(), color: Colors.blue, width: 18, borderRadius: BorderRadius.circular(6))),
+                            BarChartGroupData(x: 2, rod: BarChartRodData(toY: _countShiftType('night').toDouble(), color: Colors.purple, width: 18, borderRadius: BorderRadius.circular(6))),
                           ],
                           titlesData: FlTitlesData(
                             leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -702,7 +686,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
             ),
             const SizedBox(height: 20),
 
-            // دکمه ذخیره عکس نمودار در گالری
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
@@ -770,7 +753,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
       ),
       onPressed: () {
         _updateDayData(_selectedDay, 'shift', shiftCode);
-        _updateDayData(_selectedDay, 'daily_leave', false); // لغو مرخصی روزانه با ثبت شیفت
+        _updateDayData(_selectedDay, 'daily_leave', false);
       },
       child: Text(label, style: const TextStyle(fontSize: 12)),
     );
