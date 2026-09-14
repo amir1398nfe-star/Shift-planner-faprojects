@@ -56,7 +56,7 @@ class _OnboardingOrMainScreenState extends State<OnboardingOrMainScreen> {
       _language = prefs.getString('language') ?? '';
       _workType = prefs.getString('workType') ?? '';
       _shiftPattern = prefs.getString('shiftPattern') ?? '';
-      _currentWeekShift = prefs.getString('currentWeekShift') ?? '';
+      _currentWeekShift = prefs.getString('currentWeekShift') ?? 'day';
       _isConfigured = _language.isNotEmpty && _workType.isNotEmpty;
       _isLoading = false;
     });
@@ -96,6 +96,7 @@ class _OnboardingOrMainScreenState extends State<OnboardingOrMainScreen> {
     return MainDashboardScreen(
       language: _language,
       workType: _workType,
+      shiftPattern: _shiftPattern,
       currentWeekShift: _currentWeekShift,
       onResetSettings: () async {
         final prefs = await SharedPreferences.getInstance();
@@ -149,7 +150,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                     Text(
                       _step == 1 ? 'لطفاً زبان خود را انتخاب کنید' :
                       _step == 2 ? 'نوع شیفت کاری شما چگونه است؟' :
-                      _step == 3 ? 'چرخش شیفت شما چطور است؟' : 'این هفته چطور هستید؟',
+                      _step == 3 ? 'چرخش شیفت شما چطور است؟' : 'شیفت این هفته شما چیست؟',
                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF3F51B5)),
                       textAlign: TextAlign.center,
                     ),
@@ -202,15 +203,15 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
       case 2:
         return Column(
           children: [
-            _radioOption('شیفتی هستم', 'shift', _selectedWorkType, (val) => setState(() => _selectedWorkType = val!)),
-            _radioOption('شیفت ثابت دارم', 'fixed', _selectedWorkType, (val) => setState(() => _selectedWorkType = val!)),
+            _radioOption('چرخشی (هفتگی)', 'shift', _selectedWorkType, (val) => setState(() => _selectedWorkType = val!)),
+            _radioOption('ثابت', 'fixed', _selectedWorkType, (val) => setState(() => _selectedWorkType = val!)),
           ],
         );
       case 3:
         return Column(
           children: [
             _radioOption('یک هفته روزکار / یک هفته عصرکار', 'one_week_rotate', _selectedPattern, (val) => setState(() => _selectedPattern = val!)),
-            _radioOption('سایر الگوها / چرخشی دیگر', 'other', _selectedPattern, (val) => setState(() => _selectedPattern = val!)),
+            _radioOption('سایر الگوها', 'other', _selectedPattern, (val) => setState(() => _selectedPattern = val!)),
           ],
         );
       case 4:
@@ -238,6 +239,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
 class MainDashboardScreen extends StatefulWidget {
   final String language;
   final String workType;
+  final String shiftPattern;
   final String currentWeekShift;
   final VoidCallback onResetSettings;
 
@@ -245,6 +247,7 @@ class MainDashboardScreen extends StatefulWidget {
     Key? key,
     required this.language,
     required this.workType,
+    required this.shiftPattern,
     required this.currentWeekShift,
     required this.onResetSettings,
   }) : super(key: key);
@@ -257,7 +260,8 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   final ScreenshotController _screenshotController = ScreenshotController();
 
   Map<String, Map<String, dynamic>> _monthData = {};
-  int _selectedDay = Jalali.now().day;
+  late Jalali _viewingDate;
+  int _selectedDay = 1;
 
   final Map<String, Map<String, String>> _strings = {
     'fa': {
@@ -272,11 +276,11 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
       'dailyLeave': 'مرخصی روزانه',
       'overtimeBtn': 'اضافه کاری',
       'noteBtn': 'یادداشت',
-      'saveChart': 'ذخیره عکس نمودار در گالری',
-      'successSave': 'عکس نمودار با موفقیت در گالری ذخیره شد.',
+      'saveChart': 'ذخیره عکس آمار در گالری',
+      'successSave': 'تصویر با موفقیت در گالری ذخیره شد.',
       'errorSave': 'خطا در ذخیره تصویر.',
-      'chartTitle': 'نمودار آمار شیفت‌های ماه جاری',
-      'reset': 'تنظیمات مجدد',
+      'chartTitle': 'نمودار آمار مرخصی و اضافه کاری',
+      'settings': 'تنظیمات',
       'noteHint': 'یادداشت این روز را وارد کنید...',
       'hoursUnit': 'ساعت',
     },
@@ -292,11 +296,11 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
       'dailyLeave': 'Daily Leave',
       'overtimeBtn': 'Overtime',
       'noteBtn': 'Note',
-      'saveChart': 'Save Chart to Gallery',
-      'successSave': 'Chart successfully saved to gallery.',
+      'saveChart': 'Save Stats to Gallery',
+      'successSave': 'Stats image saved successfully.',
       'errorSave': 'Error saving image.',
-      'chartTitle': 'Current Month Shift Analytics',
-      'reset': 'Reset Settings',
+      'chartTitle': 'Leave & Overtime Analytics',
+      'settings': 'Settings',
       'noteHint': 'Enter note for this day...',
       'hoursUnit': 'hrs',
     },
@@ -312,11 +316,11 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
       'dailyLeave': 'Tagesurlaub',
       'overtimeBtn': 'Überstunden',
       'noteBtn': 'Notiz',
-      'saveChart': 'Diagramm in Galerie speichern',
-      'successSave': 'Diagramm erfolgreich gespeichert.',
+      'saveChart': 'Diagramm speichern',
+      'successSave': 'Erfolgreich gespeichert.',
       'errorSave': 'Fehler beim Speichern.',
-      'chartTitle': 'Monatliche Schichtstatistik',
-      'reset': 'Einstellungen zurücksetzen',
+      'chartTitle': 'Urlaubs- & Überstundenstatistik',
+      'settings': 'Einstellungen',
       'noteHint': 'Notiz eingeben...',
       'hoursUnit': 'Std',
     },
@@ -327,13 +331,17 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    _viewingDate = Jalali.now();
+    _selectedDay = _viewingDate.day;
     _loadMonthData();
   }
 
   String _getDayKey(int day) {
-    Jalali now = Jalali.now();
-    return "${now.year}-${now.month}-$day";
+    return "${_viewingYear()}-${_viewingMonth()}-$day";
   }
+
+  int _viewingYear() => _viewingDate.year;
+  int _viewingMonth() => _viewingDate.month;
 
   Future<void> _loadMonthData() async {
     final prefs = await SharedPreferences.getInstance();
@@ -364,17 +372,69 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     _saveMonthData();
   }
 
-  dynamic _getDayData(int day, String key, {dynamic defaultValue}) {
-    String dKey = _getDayKey(day);
+  dynamic _getStoredDayDataDirect(int day, String key, {dynamic defaultValue}) {
+    String dKey = "${_viewingYear()}-${_viewingMonth()}-$day";
     return _monthData[dKey]?[key] ?? defaultValue;
   }
 
+  // محاسبه خودکار شیفت روز بر اساس هفته (چرخش هفتگی خودکار)
+  String _calculateAutomaticShift(int dayNum) {
+    Jalali firstDayOfMonth = Jalali(_viewingYear(), _viewingMonth(), 1);
+    Jalali targetDate = Jalali(_viewingYear(), _viewingMonth(), dayNum);
+    
+    // اختلاف روزها تا اول ماه
+    int diffDays = targetDate.compareTo(firstDayOfMonth);
+    int weekIndex = (diffDays / 7).floor();
+
+    String baseShift = widget.currentWeekShift; // شیفت هفته اول کاربر
+    if (widget.workType == 'fixed') {
+      return baseShift;
+    }
+
+    // اگر چرخش هفتگی فعال باشد
+    if (weekIndex % 2 == 1) {
+      // هفته دوم برعکس می‌شود
+      return baseShift == 'day' ? 'evening' : 'day';
+    }
+    return baseShift;
+  }
+
+  String _getDayShift(int dayNum) {
+    // اگر کاربر دستی شیفت این روز را تغییر داده باشد، آن را برمی‌گرداند، وگرنه محاسبه خودکار
+    String? manualShift = _getStoredDayDataDirect(dayNum, 'shift', defaultValue: null);
+    if (manualShift != null) return manualShift;
+    return _calculateAutomaticShift(dayNum);
+  }
+
+  int _getDaysInCurrentMonth() {
+    int m = _viewingMonth();
+    int y = _viewingYear();
+    if (m <= 6) return 31;
+    if (m <= 11) return 30;
+    return Jalali(y, 1, 1).isLeapYear() ? 30 : 29;
+  }
+
+  void _changeMonth(int delta) {
+    setState(() {
+      int newMonth = _viewingMonth() + delta;
+      int newYear = _viewingYear();
+      if (newMonth > 12) {
+        newMonth = 1;
+        newYear++;
+      } else if (newMonth < 1) {
+        newMonth = 12;
+        newYear--;
+      }
+      _viewingDate = Jalali(newYear, newMonth, 1);
+      _selectedDay = 1;
+    });
+  }
+
   double _getTotalForMonth(String key) {
-    Jalali today = Jalali.now();
-    int daysInMonth = today.month <= 6 ? 31 : (today.month <= 11 ? 30 : (Jalali(today.year, 1, 1).isLeapYear() ? 30 : 29));
+    int daysInMonth = _getDaysInCurrentMonth();
     double total = 0.0;
     for (int i = 1; i <= daysInMonth; i++) {
-      var val = _getDayData(i, key, defaultValue: 0.0);
+      var val = _getStoredDayDataDirect(i, key, defaultValue: 0.0);
       if (val is num) {
         total += val.toDouble();
       }
@@ -382,371 +442,384 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     return total;
   }
 
+  int _countDailyLeaves() {
+    int daysInMonth = _getDaysInCurrentMonth();
+    int count = 0;
+    for (int i = 1; i <= daysInMonth; i++) {
+      if (_getStoredDayDataDirect(i, 'daily_leave', defaultValue: false)) {
+        count++;
+      }
+    }
+    return count;
+  }
+
   @override
   Widget build(BuildContext context) {
-    Jalali today = Jalali.now();
-    int daysInMonth = today.month <= 6 ? 31 : (today.month <= 11 ? 30 : (Jalali(today.year, 1, 1).isLeapYear() ? 30 : 29));
-    Jalali firstDayOfMonth = Jalali(today.year, today.month, 1);
+    int daysInMonth = _getDaysInCurrentMonth();
+    Jalali firstDayOfMonth = Jalali(_viewingYear(), _viewingMonth(), 1);
     int startWeekday = firstDayOfMonth.weekDay; // 1=شنبه تا 7=جمعه
 
     double totalOvertime = _getTotalForMonth('overtime');
     double totalLeave = _getTotalForMonth('hourly_leave');
 
+    String monthName = firstDayOfMonth.formatter.mN;
+    String yearStr = '${_viewingYear()}';
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(t('title'), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+        title: Text(t('title'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF3F51B5),
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings_backup_restore),
-            tooltip: t('reset'),
+            icon: const Icon(Icons.settings),
+            tooltip: t('settings'),
             onPressed: widget.onResetSettings,
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: _statCard(t('overtime'), '$totalOvertime ${t('hoursUnit')}', Icons.timer, Colors.green),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _statCard(t('leave'), '$totalLeave ${t('hoursUnit')}', Icons.beach_access, Colors.orange),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: _statCard(t('overtime'), '$totalOvertime ${t('hoursUnit')}', Icons.timer, Colors.green),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _statCard(t('leave'), '$totalLeave ${t('hoursUnit')}', Icons.beach_access, Colors.orange),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
 
-            Card(
-              elevation: 3,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              child: Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('${today.formatter.yyyy}/${today.formatter.mm}',
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF3F51B5))),
-                        Text('امروز: ${today.day}', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-                      ],
-                    ),
-                    const Divider(height: 20),
-
-                    const Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        Text('شنبه', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.indigo)),
-                        Text('یکشنبه', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.indigo)),
-                        Text('دوشنبه', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.indigo)),
-                        Text('سه‌شنبه', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.indigo)),
-                        Text('چهارشنبه', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.indigo)),
-                        Text('پنج‌شنبه', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.indigo)),
-                        Text('جمعه', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.red)),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 7,
-                        crossAxisSpacing: 3,
-                        mainAxisSpacing: 3,
-                        childAspectRatio: 0.72,
+              // تقویم ماهانه
+              Card(
+                elevation: 3,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.arrow_right, size: 28, color: Color(0xFF3F51B5)),
+                            onPressed: () => _changeMonth(1),
+                            tooltip: 'ماه بعد',
+                          ),
+                          Text('$monthName $yearStr',
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF3F51B5))),
+                          IconButton(
+                            icon: const Icon(Icons.arrow_left, size: 28, color: Color(0xFF3F51B5)),
+                            onPressed: () => _changeMonth(-1),
+                            tooltip: 'ماه قبل',
+                          ),
+                        ],
                       ),
-                      itemCount: daysInMonth + (startWeekday - 1),
-                      itemBuilder: (context, index) {
-                        if (index < startWeekday - 1) {
-                          return const SizedBox.shrink();
-                        }
-                        int dayNum = index - (startWeekday - 2);
-                        bool isSelected = _selectedDay == dayNum;
-                        bool isFriday = (index % 7) == 6;
+                      const Divider(height: 16),
 
-                        String shiftCode = _getDayData(dayNum, 'shift', defaultValue: widget.currentWeekShift);
-                        bool isDailyLeave = _getDayData(dayNum, 'daily_leave', defaultValue: false);
-                        double hourlyLeaveVal = _getDayData(dayNum, 'hourly_leave', defaultValue: 0.0);
-                        double overtimeVal = _getDayData(dayNum, 'overtime', defaultValue: 0.0);
-                        String noteVal = _getDayData(dayNum, 'note', defaultValue: '');
+                      const Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          Text('ش', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.indigo)),
+                          Text('ی', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.indigo)),
+                          Text('د', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.indigo)),
+                          Text('س', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.indigo)),
+                          Text('چ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.indigo)),
+                          Text('پ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.indigo)),
+                          Text('ج', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.red)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
 
-                        Color cellColor = isFriday ? Colors.red.shade50.withOpacity(0.5) : Colors.white;
-                        String shiftLabel = '';
-
-                        if (isDailyLeave) {
-                          cellColor = Colors.deepOrange.shade100;
-                          shiftLabel = 'مرخصی روزانه';
-                        } else {
-                          if (shiftCode == 'day') {
-                            shiftLabel = 'روزکار';
-                            cellColor = isFriday ? Colors.red.shade50 : Colors.amber.shade100;
-                          } else if (shiftCode == 'evening') {
-                            shiftLabel = 'عصرکار';
-                            cellColor = isFriday ? Colors.red.shade50 : Colors.blue.shade100;
-                          } else if (shiftCode == 'night') {
-                            shiftLabel = 'شبکار';
-                            cellColor = isFriday ? Colors.red.shade50 : Colors.purple.shade100;
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 7,
+                          crossAxisSpacing: 3,
+                          mainAxisSpacing: 3,
+                          childAspectRatio: 0.72,
+                        ),
+                        itemCount: daysInMonth + (startWeekday - 1),
+                        itemBuilder: (context, index) {
+                          if (index < startWeekday - 1) {
+                            return const SizedBox.shrink();
                           }
-                        }
+                          int dayNum = index - (startWeekday - 2);
+                          bool isSelected = _selectedDay == dayNum;
+                          bool isFriday = (index % 7) == 6;
 
-                        return GestureDetector(
-                          onTap: () => setState(() => _selectedDay = dayNum),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: isSelected ? const Color(0xFF3F51B5) : cellColor,
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                color: isSelected ? Colors.indigo.shade900 : (isFriday ? Colors.red.shade200 : Colors.grey.shade300),
-                                width: isSelected ? 2 : 1,
+                          String shiftCode = _getDayShift(dayNum);
+                          bool isDailyLeave = _getStoredDayDataDirect(dayNum, 'daily_leave', defaultValue: false);
+                          double hourlyLeaveVal = _getStoredDayDataDirect(dayNum, 'hourly_leave', defaultValue: 0.0);
+                          double overtimeVal = _getStoredDayDataDirect(dayNum, 'overtime', defaultValue: 0.0);
+                          String noteVal = _getStoredDayDataDirect(dayNum, 'note', defaultValue: '');
+
+                          Color cellColor = isFriday ? Colors.red.shade50.withOpacity(0.5) : Colors.white;
+                          String shiftLabel = '';
+
+                          if (isDailyLeave) {
+                            cellColor = Colors.deepOrange.shade100;
+                            shiftLabel = 'مرخصی';
+                          } else {
+                            if (shiftCode == 'day') {
+                              shiftLabel = 'روز';
+                              cellColor = isFriday ? Colors.red.shade50 : Colors.amber.shade100;
+                            } else if (shiftCode == 'evening') {
+                              shiftLabel = 'عصر';
+                              cellColor = isFriday ? Colors.red.shade50 : Colors.blue.shade100;
+                            } else if (shiftCode == 'night') {
+                              shiftLabel = 'شب';
+                              cellColor = isFriday ? Colors.red.shade50 : Colors.purple.shade100;
+                            }
+                          }
+
+                          return GestureDetector(
+                            onTap: () => setState(() => _selectedDay = dayNum),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: isSelected ? const Color(0xFF3F51B5) : cellColor,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: isSelected ? Colors.indigo.shade900 : (isFriday ? Colors.red.shade200 : Colors.grey.shade300),
+                                  width: isSelected ? 2 : 1,
+                                ),
                               ),
-                            ),
-                            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  '$dayNum',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                    color: isSelected ? Colors.white : (isFriday ? Colors.red.shade700 : Colors.black87),
+                              padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    '$dayNum',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                      color: isSelected ? Colors.white : (isFriday ? Colors.red.shade700 : Colors.black87),
+                                    ),
                                   ),
-                                ),
-                                Column(
-                                  children: [
-                                    if (shiftLabel.isNotEmpty)
-                                      Text(
-                                        shiftLabel,
-                                        style: TextStyle(fontSize: 8, color: isSelected ? Colors.white70 : Colors.grey.shade800),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    if (overtimeVal > 0)
-                                      Text(
-                                        '+${overtimeVal} ک',
-                                        style: TextStyle(fontSize: 7, fontWeight: FontWeight.bold, color: isSelected ? Colors.greenAccent : Colors.green.shade800),
-                                      ),
-                                    if (hourlyLeaveVal > 0)
-                                      Text(
-                                        'م.${hourlyLeaveVal}س',
-                                        style: TextStyle(fontSize: 7, fontWeight: FontWeight.bold, color: isSelected ? Colors.orangeAccent : Colors.orange.shade800),
-                                      ),
-                                    if (noteVal.isNotEmpty)
-                                      Container(
-                                        margin: const EdgeInsets.only(top: 1),
-                                        padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 0.5),
-                                        decoration: BoxDecoration(
-                                          color: isSelected ? Colors.pink.shade300 : Colors.pink.shade100,
-                                          borderRadius: BorderRadius.circular(4),
+                                  Column(
+                                    children: [
+                                      if (shiftLabel.isNotEmpty)
+                                        Text(
+                                          shiftLabel,
+                                          style: TextStyle(fontSize: 8, color: isSelected ? Colors.white70 : Colors.grey.shade800),
+                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                        child: Text(
-                                          'یادداشت',
-                                          style: TextStyle(fontSize: 6, color: isSelected ? Colors.white : Colors.pink.shade900),
+                                      if (overtimeVal > 0)
+                                        Text(
+                                          '+${overtimeVal}',
+                                          style: TextStyle(fontSize: 7, fontWeight: FontWeight.bold, color: isSelected ? Colors.greenAccent : Colors.green.shade800),
                                         ),
-                                      ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(t('selectDay') + ' (روز $_selectedDay):', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                    const SizedBox(height: 10),
-                    
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _shiftButton(t('dayShift'), Colors.amber, 'day'),
-                        _shiftButton(t('eveningShift'), Colors.blue, 'evening'),
-                        _shiftButton(t('nightShift'), Colors.purple, 'night'),
-                      ],
-                    ),
-                    const Divider(height: 16),
-
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.deepOrange, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 8)),
-                          onPressed: () => _toggleDailyLeave(_selectedDay),
-                          icon: const Icon(Icons.free_breakfast, size: 16),
-                          label: Text(_getDayData(_selectedDay, 'daily_leave', defaultValue: false) ? 'لغو مرخصی' : t('dailyLeave'), style: const TextStyle(fontSize: 11)),
-                        ),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.orange.shade700, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 8)),
-                          onPressed: () => _showHourlyLeaveDialog(_selectedDay),
-                          icon: const Icon(Icons.hourglass_bottom, size: 16),
-                          label: Text(t('hourlyLeave'), style: const TextStyle(fontSize: 11)),
-                        ),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.green.shade700, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 8)),
-                          onPressed: () => _showOvertimeDialog(_selectedDay),
-                          icon: const Icon(Icons.add_task, size: 16),
-                          label: Text(t('overtimeBtn'), style: const TextStyle(fontSize: 11)),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-
-                    TextField(
-                      controller: TextEditingController(text: _getDayData(_selectedDay, 'note', defaultValue: ''))
-                        ..selection = TextSelection.fromPosition(TextPosition(offset: (_getDayData(_selectedDay, 'note', defaultValue: '') as String).length)),
-                      decoration: InputDecoration(
-                        labelText: t('noteHint'),
-                        labelStyle: TextStyle(color: Colors.pink.shade700, fontSize: 12),
-                        prefixIcon: Icon(Icons.note_alt, color: Colors.pink.shade400, size: 18),
-                        focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.pink.shade400, width: 2), borderRadius: BorderRadius.circular(8)),
-                        enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.pink.shade200), borderRadius: BorderRadius.circular(8)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      ),
-                      style: const TextStyle(fontSize: 13),
-                      onChanged: (val) => _updateDayData(_selectedDay, 'note', val),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            Screenshot(
-              controller: _screenshotController,
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [BoxShadow(color: Colors.grey.shade200, blurRadius: 6, spreadRadius: 2)],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(t('chartTitle'), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF3F51B5))),
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      height: 180,
-                      child: BarChart(
-                        BarChartData(
-                          alignment: BarChartAlignment.spaceAround,
-                          maxY: 20,
-                          barGroups: [
-                            BarChartGroupData(
-                              x: 0,
-                              barRods: [
-                                BarChartRodData(
-                                  toY: _countShiftType('day').toDouble(),
-                                  color: Colors.amber,
-                                  width: 18,
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                              ],
-                            ),
-                            BarChartGroupData(
-                              x: 1,
-                              barRods: [
-                                BarChartRodData(
-                                  toY: _countShiftType('evening').toDouble(),
-                                  color: Colors.blue,
-                                  width: 18,
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                              ],
-                            ),
-                            BarChartGroupData(
-                              x: 2,
-                              barRods: [
-                                BarChartRodData(
-                                  toY: _countShiftType('night').toDouble(),
-                                  color: Colors.purple,
-                                  width: 18,
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                              ],
-                            ),
-                          ],
-                          titlesData: FlTitlesData(
-                            leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                            bottomTitles: AxisTitles(
-                              sideTitles: SideTitles(
-                                showTitles: true,
-                                getTitlesWidget: (value, meta) {
-                                  switch (value.toInt()) {
-                                    case 0: return const Text('روزکار', style: TextStyle(fontSize: 11));
-                                    case 1: return const Text('عصرکار', style: TextStyle(fontSize: 11));
-                                    case 2: return const Text('شبکار', style: TextStyle(fontSize: 11));
-                                  }
-                                  return const Text('');
-                                },
+                                      if (hourlyLeaveVal > 0)
+                                        Text(
+                                          'م.${hourlyLeaveVal}',
+                                          style: TextStyle(fontSize: 7, fontWeight: FontWeight.bold, color: isSelected ? Colors.orangeAccent : Colors.orange.shade800),
+                                        ),
+                                      if (noteVal.isNotEmpty)
+                                        Container(
+                                          margin: const EdgeInsets.only(top: 1),
+                                          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 0.5),
+                                          decoration: BoxDecoration(
+                                            color: isSelected ? Colors.pink.shade300 : Colors.pink.shade100,
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            'یادداشت',
+                                            style: TextStyle(fontSize: 6, color: isSelected ? Colors.white : Colors.pink.shade900),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ],
                               ),
                             ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // مدیریت روز انتخاب شده
+              Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('${t('selectDay')} (روز $_selectedDay $monthName):', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      const SizedBox(height: 10),
+                      
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _shiftButton(t('dayShift'), Colors.amber, 'day'),
+                          _shiftButton(t('eveningShift'), Colors.blue, 'evening'),
+                          _shiftButton(t('nightShift'), Colors.purple, 'night'),
+                        ],
+                      ),
+                      const Divider(height: 16),
+
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.deepOrange, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 8)),
+                            onPressed: () => _toggleDailyLeave(_selectedDay),
+                            icon: const Icon(Icons.free_breakfast, size: 16),
+                            label: Text(_getStoredDayDataDirect(_selectedDay, 'daily_leave', defaultValue: false) ? 'لغو مرخصی' : t('dailyLeave'), style: const TextStyle(fontSize: 11)),
                           ),
-                          gridData: const FlGridData(show: false),
-                          borderData: FlBorderData(show: false),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange.shade700, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 8)),
+                            onPressed: () => _showHourlyLeaveDialog(_selectedDay),
+                            icon: const Icon(Icons.hourglass_bottom, size: 16),
+                            label: Text(t('hourlyLeave'), style: const TextStyle(fontSize: 11)),
+                          ),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.green.shade700, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 8)),
+                            onPressed: () => _showOvertimeDialog(_selectedDay),
+                            icon: const Icon(Icons.add_task, size: 16),
+                            label: Text(t('overtimeBtn'), style: const TextStyle(fontSize: 11)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+
+                      TextField(
+                        controller: TextEditingController(text: _getStoredDayDataDirect(_selectedDay, 'note', defaultValue: ''))
+                          ..selection = TextSelection.fromPosition(TextPosition(offset: (_getStoredDayDataDirect(_selectedDay, 'note', defaultValue: '') as String).length)),
+                        decoration: InputDecoration(
+                          labelText: t('noteHint'),
+                          labelStyle: TextStyle(color: Colors.pink.shade700, fontSize: 12),
+                          prefixIcon: Icon(Icons.note_alt, color: Colors.pink.shade400, size: 18),
+                          focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.pink.shade400, width: 2), borderRadius: BorderRadius.circular(8)),
+                          enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.pink.shade200), borderRadius: BorderRadius.circular(8)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        ),
+                        style: const TextStyle(fontSize: 13),
+                        onChanged: (val) => _updateDayData(_selectedDay, 'note', val),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // نمودار آمار مرخصی و اضافه کاری
+              Screenshot(
+                controller: _screenshotController,
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [BoxShadow(color: Colors.grey.shade200, blurRadius: 6, spreadRadius: 2)],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(t('chartTitle'), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF3F51B5))),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        height: 180,
+                        child: BarChart(
+                          BarChartData(
+                            alignment: BarChartAlignment.spaceAround,
+                            maxY: 40,
+                            barGroups: [
+                              BarChartGroupData(
+                                x: 0,
+                                barRods: [
+                                  BarChartRodData(
+                                    toY: totalOvertime,
+                                    color: Colors.green,
+                                    width: 18,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                ],
+                              ),
+                              BarChartGroupData(
+                                x: 1,
+                                barRods: [
+                                  BarChartRodData(
+                                    toY: totalLeave,
+                                    color: Colors.orange,
+                                    width: 18,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                ],
+                              ),
+                              BarChartGroupData(
+                                x: 2,
+                                barRods: [
+                                  BarChartRodData(
+                                    toY: _countDailyLeaves().toDouble(),
+                                    color: Colors.deepOrange,
+                                    width: 18,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                ],
+                              ),
+                            ],
+                            titlesData: FlTitlesData(
+                              leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                              topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                              rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                              bottomTitles: AxisTitles(
+                                sideTitles: SideTitles(
+                                  showTitles: true,
+                                  getTitlesWidget: (value, meta) {
+                                    switch (value.toInt()) {
+                                      case 0: return const Text('اضافه کار (ساعت)', style: TextStyle(fontSize: 10));
+                                      case 1: return const Text('مرخصی ساعتی', style: TextStyle(fontSize: 10));
+                                      case 2: return const Text('مرخصی روزانه', style: TextStyle(fontSize: 10));
+                                    }
+                                    return const Text('');
+                                  },
+                                ),
+                              ),
+                            ),
+                            gridData: const FlGridData(show: false),
+                            borderData: FlBorderData(show: false),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
+              const SizedBox(height: 20),
 
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _captureAndSaveChart,
-                icon: const Icon(Icons.download_rounded, color: Colors.white),
-                label: Text(t('saveChart'), style: const TextStyle(color: Colors.white, fontSize: 15)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF3F51B5),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _captureAndSaveChart,
+                  icon: const Icon(Icons.download_rounded, color: Colors.white),
+                  label: Text(t('saveChart'), style: const TextStyle(color: Colors.white, fontSize: 15)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF3F51B5),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
-  }
-
-  int _countShiftType(String type) {
-    Jalali today = Jalali.now();
-    int daysInMonth = today.month <= 6 ? 31 : (today.month <= 11 ? 30 : (Jalali(today.year, 1, 1).isLeapYear() ? 30 : 29));
-    int count = 0;
-    for (int i = 1; i <= daysInMonth; i++) {
-      String shift = _getDayData(i, 'shift', defaultValue: widget.currentWeekShift);
-      bool isDailyLeave = _getDayData(i, 'daily_leave', defaultValue: false);
-      if (!isDailyLeave && shift == type) {
-        count++;
-      }
-    }
-    return count;
   }
 
   Widget _statCard(String title, String value, IconData icon, Color color) {
@@ -782,6 +855,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
       onPressed: () {
+        // ثبت دستی شیفت فقط برای این روز خاص در صورت نیاز
         _updateDayData(_selectedDay, 'shift', shiftCode);
         _updateDayData(_selectedDay, 'daily_leave', false);
       },
@@ -790,12 +864,12 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   }
 
   void _toggleDailyLeave(int day) {
-    bool current = _getDayData(day, 'daily_leave', defaultValue: false);
+    bool current = _getStoredDayDataDirect(day, 'daily_leave', defaultValue: false);
     _updateDayData(day, 'daily_leave', !current);
   }
 
   void _showHourlyLeaveDialog(int day) {
-    double currentVal = _getDayData(day, 'hourly_leave', defaultValue: 0.0);
+    double currentVal = _getStoredDayDataDirect(day, 'hourly_leave', defaultValue: 0.0);
     TextEditingController controller = TextEditingController(text: currentVal > 0 ? currentVal.toString() : '');
 
     showDialog(
@@ -823,7 +897,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   }
 
   void _showOvertimeDialog(int day) {
-    double currentVal = _getDayData(day, 'overtime', defaultValue: 0.0);
+    double currentVal = _getStoredDayDataDirect(day, 'overtime', defaultValue: 0.0);
     TextEditingController controller = TextEditingController(text: currentVal > 0 ? currentVal.toString() : '');
 
     showDialog(
@@ -857,7 +931,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
         final result = await ImageGallerySaverPlus.saveImage(
           imageUint8List,
           quality: 100,
-          name: "Chart_${DateTime.now().millisecondsSinceEpoch}",
+          name: "Stats_${DateTime.now().millisecondsSinceEpoch}",
         );
 
         if (result != null) {
