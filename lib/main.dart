@@ -653,9 +653,39 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                           alignment: BarChartAlignment.spaceAround,
                           maxY: 20,
                           barGroups: [
-                            BarChartGroupData(x: 0, rod: BarChartRodData(toY: _countShiftType('day').toDouble(), color: Colors.amber, width: 18, borderRadius: BorderRadius.circular(6))),
-                            BarChartGroupData(x: 1, rod: BarChartRodData(toY: _countShiftType('evening').toDouble(), color: Colors.blue, width: 18, borderRadius: BorderRadius.circular(6))),
-                            BarChartGroupData(x: 2, rod: BarChartRodData(toY: _countShiftType('night').toDouble(), color: Colors.purple, width: 18, borderRadius: BorderRadius.circular(6))),
+                            BarChartGroupData(
+                              x: 0,
+                              barRods: [
+                                BarChartRodData(
+                                  toY: _countShiftType('day').toDouble(),
+                                  color: Colors.amber,
+                                  width: 18,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                              ],
+                            ),
+                            BarChartGroupData(
+                              x: 1,
+                              barRods: [
+                                BarChartRodData(
+                                  toY: _countShiftType('evening').toDouble(),
+                                  color: Colors.blue,
+                                  width: 18,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                              ],
+                            ),
+                            BarChartGroupData(
+                              x: 2,
+                              barRods: [
+                                BarChartRodData(
+                                  toY: _countShiftType('night').toDouble(),
+                                  color: Colors.purple,
+                                  width: 18,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                              ],
+                            ),
                           ],
                           titlesData: FlTitlesData(
                             leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
