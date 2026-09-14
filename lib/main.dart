@@ -326,7 +326,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     },
   };
 
-  String t(String key) => _strings[widget.language]?[key] ?? _strings['fa']![key]!;
+  String t(String key) => _strings[widget.language]?[key] ?? _strings['fa']![key]!}
 
   @override
   void initState() {
@@ -377,30 +377,28 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     return _monthData[dKey]?[key] ?? defaultValue;
   }
 
-  // محاسبه خودکار شیفت روز بر اساس هفته (چرخش هفتگی خودکار)
+  // محاسبه دقیق هفته‌ها بر اساس سطر تقویم (تغییر شیفت در هر شنبه)
   String _calculateAutomaticShift(int dayNum) {
     Jalali firstDayOfMonth = Jalali(_viewingYear(), _viewingMonth(), 1);
-    Jalali targetDate = Jalali(_viewingYear(), _viewingMonth(), dayNum);
+    int startWeekday = firstDayOfMonth.weekDay; // 1=شنبه تا 7=جمعه
     
-    // اختلاف روزها تا اول ماه
-    int diffDays = targetDate.compareTo(firstDayOfMonth);
-    int weekIndex = (diffDays / 7).floor();
+    // موقعیت روز در جدول تقویم
+    int totalIndex = (dayNum - 1) + (startWeekday - 1);
+    int weekRow = (totalIndex / 7).floor();
 
-    String baseShift = widget.currentWeekShift; // شیفت هفته اول کاربر
+    String baseShift = widget.currentWeekShift; 
     if (widget.workType == 'fixed') {
       return baseShift;
     }
 
-    // اگر چرخش هفتگی فعال باشد
-    if (weekIndex % 2 == 1) {
-      // هفته دوم برعکس می‌شود
+    // چرخش هفتگی بر اساس ردیف هفته در تقویم
+    if (weekRow % 2 == 1) {
       return baseShift == 'day' ? 'evening' : 'day';
     }
     return baseShift;
   }
 
   String _getDayShift(int dayNum) {
-    // اگر کاربر دستی شیفت این روز را تغییر داده باشد، آن را برمی‌گرداند، وگرنه محاسبه خودکار
     String? manualShift = _getStoredDayDataDirect(dayNum, 'shift', defaultValue: null);
     if (manualShift != null) return manualShift;
     return _calculateAutomaticShift(dayNum);
@@ -855,7 +853,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
       onPressed: () {
-        // ثبت دستی شیفت فقط برای این روز خاص در صورت نیاز
         _updateDayData(_selectedDay, 'shift', shiftCode);
         _updateDayData(_selectedDay, 'daily_leave', false);
       },
