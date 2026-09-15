@@ -501,7 +501,6 @@ class ShamsiCalendarScreen extends StatelessWidget {
     if (mainShiftType == 'یک هفته روز یک هفته عصر') {
       bool isFirstHalfWeek = ((dayNum - 1) ~/ 7) % 2 == 0;
       if (subShiftDetail == 'این هفته صبح‌کار') {
-        // اصلاح جهت نمایش به‌طوری که انتخاب روزکار/عصرکار کاملاً درست و منطقی اعمال شود
         return isFirstHalfWeek ? 'عصرکار' : 'روزکار';
       } else {
         return isFirstHalfWeek ? 'روزکار' : 'عصرکار';
@@ -840,9 +839,8 @@ class ReportsChartScreen extends StatelessWidget {
     AppStrings strings = AppStrings(langCode);
     String monthName = shamsiMonths[currentMonthIndex];
 
-    // محاسبه حداکثر مقدار برای مقیاس‌بندی نمودار ستونی
     double maxBarValue = [totalOvertime.toDouble(), (totalLeaveDays * 8).toDouble(), totalLeaveHours.toDouble()].reduce((a, b) => a > b ? a : b);
-    if (maxBarValue < 10) maxBarValue = 10; // حداقل سقف برای نمایش بهتر نمودار
+    if (maxBarValue < 10) maxBarValue = 10;
 
     return Padding(
       padding: const EdgeInsets.all(16.0),
@@ -868,7 +866,6 @@ class ReportsChartScreen extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // اضافه کردن اعداد و مقادیر در کنار/بالای ستون‌های نمودار
                   Expanded(
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -915,12 +912,10 @@ class ReportsChartScreen extends StatelessWidget {
   }
 
   Widget _buildBar(String label, double value, double maxVal, Color color, {String? subLabel}) {
-    // محاسبه ارتفاع متناسب با سقف نمودار (حداکثر ۱۲۰ پیکسل ارتفاع ستون)
     double heightFactor = (value / maxVal).clamp(0.08, 1.0);
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        // نمایش مقدار عددی دقیق بالای ستون
         Text(
           value == value.toInt() ? '${value.toInt()}' : '${value.toStringAsFixed(1)}', 
           style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color)
@@ -975,7 +970,7 @@ class SettingsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           ListTile(
-            title: Text(strings.get('change_shift']),
+            title: Text(strings.get('change_shift')),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
             tileColor: Colors.white,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
