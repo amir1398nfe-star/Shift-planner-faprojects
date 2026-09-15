@@ -1,818 +1,182 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shamsi_date/shamsi_date.dart';
-import 'package:screenshot/screenshot.dart';
-import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:fl_chart/fl_chart.dart';
+import 'package:shamsi_date/shamsi_date.dart';
+import 'dart:convert';
 
-void main() {
-  runApp(const ShiftPlannerApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const ShiftTrackerApp());
 }
 
-class ShiftPlannerApp extends StatelessWidget {
-  const ShiftPlannerApp({Key? key}) : super(key: key);
+// مدیریت متن‌ها و ترجمه‌های برنامه (فارسی، انگلیسی، آلمانی)
+class AppStrings {
+  final String langCode;
+  AppStrings(this.langCode);
 
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Shift Planner Pro',
-      theme: ThemeData(
-        primarySwatch: Colors.indigo,
-        scaffoldBackgroundColor: const Color(0xFFF4F6F9),
-        fontFamily: 'Tahoma',
-      ),
-      home: const OnboardingOrMainScreen(),
-      debugShowCheckedModeBanner: false,
-    );
+  static const Map<String, Map<String, String>> _translations = {
+    'fa': {
+      'app_title': 'مدیریت شیفت و کارکرد',
+      'tab_calendar': 'تقویم و شیفت‌ها',
+      'tab_reports': 'گزارش و نمودار',
+      'overtime': 'اضافه‌کار',
+      'daily_leave': 'مرخصی روزانه',
+      'hourly_leave': 'مرخصی ساعتی',
+      'current_shift': 'شیفت:',
+      'change_shift': 'تغییر شیفت',
+      'settings': 'تنظیمات',
+      'language': 'زبان برنامه',
+      'select_language': 'زبان مورد نظر خود را انتخاب کنید',
+      'save_shift': 'تایید و ذخیره شیفت',
+      'day_settings': 'تنظیمات روز',
+      'hourly_leave_hours': 'تعداد ساعت مرخصی',
+      'daily_note': 'یادداشت روزانه',
+      'save_changes': 'ثبت تغییرات',
+      'save_chart_image': 'ذخیره نمودار به صورت عکس',
+      'chart_saved_msg': 'نمودار با موفقیت ذخیره شد!',
+      'select_shift_type': 'شیفت کاری خود را انتخاب کنید:',
+      'how_is_this_week': 'این هفته چطور هستید؟',
+    },
+    'en': {
+      'app_title': 'Shift & Work Tracker',
+      'tab_calendar': 'Calendar & Shifts',
+      'tab_reports': 'Reports & Chart',
+      'overtime': 'Overtime',
+      'daily_leave': 'Daily Leave',
+      'hourly_leave': 'Hourly Leave',
+      'current_shift': 'Shift:',
+      'change_shift': 'Change Shift',
+      'settings': 'Settings',
+      'language': 'App Language',
+      'select_language': 'Select your preferred language',
+      'save_shift': 'Save Shift',
+      'day_settings': 'Day Settings',
+      'hourly_leave_hours': 'Leave Hours',
+      'daily_note': 'Daily Note',
+      'save_changes': 'Save Changes',
+      'save_chart_image': 'Save Chart as Image',
+      'chart_saved_msg': 'Chart saved successfully!',
+      'select_shift_type': 'Select your shift type:',
+      'how_is_this_week': 'How is your shift this week?',
+    },
+    'de': {
+      'app_title': 'Schicht- und Arbeitsplaner',
+      'tab_calendar': 'Kalender & Schichten',
+      'tab_reports': 'Berichte & Diagramm',
+      'overtime': 'Überstunden',
+      'daily_leave': 'Tagesurlaub',
+      'hourly_leave': 'Stundenurlaub',
+      'current_shift': 'Schicht:',
+      'change_shift': 'Schicht ändern',
+      'settings': 'Einstellungen',
+      'language': 'App-Sprache',
+      'select_language': 'Wählen Sie Ihre Sprache',
+      'save_shift': 'Schicht speichern',
+      'day_settings': 'Tages-Einstellungen',
+      'hourly_leave_hours': 'Urlaubsstunden',
+      'daily_note': 'Tagesnotiz',
+      'save_changes': 'Änderungen speichern',
+      'save_chart_image': 'Diagramm als Bild speichern',
+      'chart_saved_msg': 'Diagramm erfolgreich gespeichert!',
+      'select_shift_type': 'Wählen Sie Ihren Schichttyp:',
+      'how_is_this_week': 'Wie ist Ihre Schicht diese Woche?',
+    }
+  };
+
+  String get(String key) {
+    return _translations[langCode]?[key] ?? _translations['fa']?[key] ?? key;
   }
 }
 
-class OnboardingOrMainScreen extends StatefulWidget {
-  const OnboardingOrMainScreen({Key? key}) : super(key: key);
+class ShiftTrackerApp extends StatefulWidget {
+  const ShiftTrackerApp({Key? key}) : super(key: key);
 
   @override
-  State<OnboardingOrMainScreen> createState() => _OnboardingOrMainScreenState();
+  State<ShiftTrackerApp> createState() => _ShiftTrackerAppSt();
+
+  static void setLocale(BuildContext context, String newLang) {
+    _ShiftTrackerAppSt? state = context.findAncestorStateOfType<_ShiftTrackerAppSt>();
+    state?.changeLanguage(newLang);
+  }
 }
 
-class _OnboardingOrMainScreenState extends State<OnboardingOrMainScreen> {
-  bool _isLoading = true;
-  bool _isConfigured = false;
-
-  String _language = 'fa';
-  String _workType = ''; 
-  String _shiftPattern = ''; 
-  String _currentWeekShift = ''; 
+class _ShiftTrackerAppSt extends State<ShiftTrackerApp> {
+  String _currentLang = '';
 
   @override
   void initState() {
     super.initState();
-    _loadSettings();
+    _loadLang();
   }
 
-  Future<void> _loadSettings() async {
+  Future<void> _loadLang() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _language = prefs.getString('language') ?? '';
-      _workType = prefs.getString('workType') ?? '';
-      _shiftPattern = prefs.getString('shiftPattern') ?? '';
-      _currentWeekShift = prefs.getString('currentWeekShift') ?? 'day';
-      _isConfigured = _language.isNotEmpty && _workType.isNotEmpty;
-      _isLoading = false;
+      _currentLang = prefs.getString('app_language') ?? '';
     });
   }
 
-  Future<void> _saveSettings() async {
+  void changeLanguage(String lang) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('language', _language);
-    await prefs.setString('workType', _workType);
-    await prefs.setString('shiftPattern', _shiftPattern);
-    await prefs.setString('currentWeekShift', _currentWeekShift);
+    await prefs.setString('app_language', lang);
     setState(() {
-      _isConfigured = true;
+      _currentLang = lang;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-
-    if (!_isConfigured) {
-      return SetupWizardScreen(
-        onComplete: (lang, workType, pattern, currentWeek) {
-          setState(() {
-            _language = lang;
-            _workType = workType;
-            _shiftPattern = pattern;
-            _currentWeekShift = currentWeek;
-          });
-          _saveSettings();
-        },
+    if (_currentLang.isEmpty) {
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: LanguageSelectionScreen(onSelected: (lang) {
+          changeLanguage(lang);
+        }),
       );
     }
 
-    return MainDashboardScreen(
-      language: _language,
-      workType: _workType,
-      shiftPattern: _shiftPattern,
-      currentWeekShift: _currentWeekShift,
-      onResetSettings: () async {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.clear();
-        setState(() {
-          _isConfigured = false;
-        });
+    return MaterialApp(
+      title: 'Shift Tracker',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        fontFamily: 'Vazirmatn',
+        primarySwatch: Colors.deepPurple,
+        scaffoldBackgroundColor: const Color(0xFFF8F9FA),
+      ),
+      builder: (context, child) {
+        return Directionality(
+          textDirection: _currentLang == 'en' ? TextDirection.ltr : TextDirection.rtl,
+          child: child!,
+        );
       },
+      home: MainContainerScreen(langCode: _currentLang),
     );
   }
 }
 
-class SetupWizardScreen extends StatefulWidget {
-  final Function(String lang, String workType, String pattern, String currentWeek) onComplete;
-
-  const SetupWizardScreen({Key? key, required this.onComplete}) : super(key: key);
-
-  @override
-  State<SetupWizardScreen> createState() => _SetupWizardScreenState();
-}
-
-class _SetupWizardScreenState extends State<SetupWizardScreen> {
-  int _step = 1;
-  String _selectedLang = 'fa';
-  String _selectedWorkType = 'shift'; 
-  String _selectedPattern = 'one_week_rotate';
-  String _selectedCurrentWeek = 'day'; 
+class LanguageSelectionScreen extends StatelessWidget {
+  final Function(String) onSelected;
+  const LanguageSelectionScreen({Key? key, required this.onSelected}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF3F51B5), Color(0xFF1A237E)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
-            child: Card(
-              elevation: 8,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _step == 1 ? 'لطفاً زبان خود را انتخاب کنید' :
-                      _step == 2 ? 'نوع شیفت کاری شما چگونه است؟' :
-                      _step == 3 ? 'چرخش شیفت شما چطور است؟' : 'شیفت این هفته شما چیست؟',
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF3F51B5)),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 24),
-                    _buildStepContent(),
-                    const SizedBox(height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        if (_step > 1)
-                          OutlinedButton(
-                            onPressed: () => setState(() => _step--),
-                            child: const Text('مرحله قبل'),
-                          )
-                        else
-                          const SizedBox(),
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF3F51B5)),
-                          onPressed: () {
-                            if (_step < 4) {
-                              setState(() => _step++);
-                            } else {
-                              widget.onComplete(_selectedLang, _selectedWorkType, _selectedPattern, _selectedCurrentWeek);
-                            }
-                          },
-                          child: Text(_step == 4 ? 'ورود به برنامه' : 'مرحله بعد', style: const TextStyle(color: Colors.white)),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStepContent() {
-    switch (_step) {
-      case 1:
-        return Column(
-          children: [
-            _radioOption('فارسی 🇮🇷', 'fa', _selectedLang, (val) => setState(() => _selectedLang = val!)),
-            _radioOption('English 🇬🇧', 'en', _selectedLang, (val) => setState(() => _selectedLang = val!)),
-            _radioOption('Deutsch 🇩🇪', 'de', _selectedLang, (val) => setState(() => _selectedLang = val!)),
-          ],
-        );
-      case 2:
-        return Column(
-          children: [
-            _radioOption('چرخشی (هفتگی)', 'shift', _selectedWorkType, (val) => setState(() => _selectedWorkType = val!)),
-            _radioOption('ثابت', 'fixed', _selectedWorkType, (val) => setState(() => _selectedWorkType = val!)),
-          ],
-        );
-      case 3:
-        return Column(
-          children: [
-            _radioOption('یک هفته روزکار / یک هفته عصرکار', 'one_week_rotate', _selectedPattern, (val) => setState(() => _selectedPattern = val!)),
-            _radioOption('سایر الگوها', 'other', _selectedPattern, (val) => setState(() => _selectedPattern = val!)),
-          ],
-        );
-      case 4:
-        return Column(
-          children: [
-            _radioOption('این هفته روزکارم ☀️', 'day', _selectedCurrentWeek, (val) => setState(() => _selectedCurrentWeek = val!)),
-            _radioOption('این هفته عصرکارم 🌙', 'evening', _selectedCurrentWeek, (val) => setState(() => _selectedCurrentWeek = val!)),
-          ],
-        );
-      default:
-        return Container();
-    }
-  }
-
-  Widget _radioOption(String title, String value, String groupValue, ValueChanged<String?> onChanged) {
-    return RadioListTile<String>(
-      title: Text(title, style: const TextStyle(fontSize: 15)),
-      value: value,
-      groupValue: groupValue,
-      onChanged: onChanged,
-    );
-  }
-}
-
-class MainDashboardScreen extends StatefulWidget {
-  final String language;
-  final String workType;
-  final String shiftPattern;
-  final String currentWeekShift;
-  final VoidCallback onResetSettings;
-
-  const MainDashboardScreen({
-    Key? key,
-    required this.language,
-    required this.workType,
-    required this.shiftPattern,
-    required this.currentWeekShift,
-    required this.onResetSettings,
-  }) : super(key: key);
-
-  @override
-  State<MainDashboardScreen> createState() => _MainDashboardScreenState();
-}
-
-class _MainDashboardScreenState extends State<MainDashboardScreen> {
-  final ScreenshotController _screenshotController = ScreenshotController();
-
-  Map<String, Map<String, dynamic>> _monthData = {};
-  late Jalali _viewingDate;
-  int _selectedDay = 1;
-
-  final Map<String, Map<String, String>> _strings = {
-    'fa': {
-      'title': 'برنامه جامع شیفت و مرخصی',
-      'overtime': 'اضافه کاری کل',
-      'leave': 'مرخصی کل',
-      'selectDay': 'مدیریت روز انتخاب شده',
-      'dayShift': 'روزکار',
-      'eveningShift': 'عصرکار',
-      'nightShift': 'شبکار',
-      'hourlyLeave': 'مرخصی ساعتی',
-      'dailyLeave': 'مرخصی روزانه',
-      'overtimeBtn': 'اضافه کاری',
-      'noteBtn': 'یادداشت',
-      'saveChart': 'ذخیره عکس آمار در گالری',
-      'successSave': 'تصویر با موفقیت در گالری ذخیره شد.',
-      'errorSave': 'خطا در ذخیره تصویر.',
-      'chartTitle': 'نمودار آمار مرخصی و اضافه کاری',
-      'settings': 'تنظیمات',
-      'noteHint': 'یادداشت این روز را وارد کنید...',
-      'hoursUnit': 'ساعت',
-    },
-    'en': {
-      'title': 'Shift & Leave Manager Pro',
-      'overtime': 'Total Overtime',
-      'leave': 'Total Leave',
-      'selectDay': 'Manage Selected Day',
-      'dayShift': 'Day Shift',
-      'eveningShift': 'Evening Shift',
-      'nightShift': 'Night Shift',
-      'hourlyLeave': 'Hourly Leave',
-      'dailyLeave': 'Daily Leave',
-      'overtimeBtn': 'Overtime',
-      'noteBtn': 'Note',
-      'saveChart': 'Save Stats to Gallery',
-      'successSave': 'Stats image saved successfully.',
-      'errorSave': 'Error saving image.',
-      'chartTitle': 'Leave & Overtime Analytics',
-      'settings': 'Settings',
-      'noteHint': 'Enter note for this day...',
-      'hoursUnit': 'hrs',
-    },
-    'de': {
-      'title': 'Schicht- & Urlaubsplaner Pro',
-      'overtime': 'Gesamt Überstunden',
-      'leave': 'Gesamt Urlaub',
-      'selectDay': 'Ausgewählten Tag verwalten',
-      'dayShift': 'Tagschicht',
-      'eveningShift': 'Abendschicht',
-      'nightShift': 'Nachtschicht',
-      'hourlyLeave': 'Stundenurlaub',
-      'dailyLeave': 'Tagesurlaub',
-      'overtimeBtn': 'Überstunden',
-      'noteBtn': 'Notiz',
-      'saveChart': 'Diagramm speichern',
-      'successSave': 'Erfolgreich gespeichert.',
-      'errorSave': 'Fehler beim Speichern.',
-      'chartTitle': 'Urlaubs- & Überstundenstatistik',
-      'settings': 'Einstellungen',
-      'noteHint': 'Notiz eingeben...',
-      'hoursUnit': 'Std',
-    },
-  };
-
-  String t(String key) => _strings[widget.language]?[key] ?? _strings['fa']![key]!;
-
-  @override
-  void initState() {
-    super.initState();
-    _viewingDate = Jalali.now();
-    _selectedDay = _viewingDate.day;
-    _loadMonthData();
-  }
-
-  String _getDayKey(int day) {
-    return "${_viewingYear()}-${_viewingMonth()}-$day";
-  }
-
-  int _viewingYear() => _viewingDate.year;
-  int _viewingMonth() => _viewingDate.month;
-
-  Future<void> _loadMonthData() async {
-    final prefs = await SharedPreferences.getInstance();
-    String? dataString = prefs.getString('month_data_storage');
-    if (dataString != null) {
-      try {
-        Map<String, dynamic> decoded = jsonDecode(dataString);
-        setState(() {
-          _monthData = decoded.map((key, value) => MapEntry(key, Map<String, dynamic>.from(value)));
-        });
-      } catch (_) {}
-    }
-  }
-
-  Future<void> _saveMonthData() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('month_data_storage', jsonEncode(_monthData));
-  }
-
-  void _updateDayData(int day, String key, dynamic value) {
-    setState(() {
-      String dKey = _getDayKey(day);
-      if (!_monthData.containsKey(dKey)) {
-        _monthData[dKey] = {};
-      }
-      _monthData[dKey]![key] = value;
-    });
-    _saveMonthData();
-  }
-
-  dynamic _getStoredDayDataDirect(int day, String key, {dynamic defaultValue}) {
-    String dKey = "${_viewingYear()}-${_viewingMonth()}-$day";
-    return _monthData[dKey]?[key] ?? defaultValue;
-  }
-
-  // محاسبه دقیق هفته‌ها بر اساس سطر تقویم (تغییر شیفت در هر شنبه)
-  String _calculateAutomaticShift(int dayNum) {
-    Jalali firstDayOfMonth = Jalali(_viewingYear(), _viewingMonth(), 1);
-    int startWeekday = firstDayOfMonth.weekDay; // 1=شنبه تا 7=جمعه
-    
-    // موقعیت روز در جدول تقویم
-    int totalIndex = (dayNum - 1) + (startWeekday - 1);
-    int weekRow = (totalIndex / 7).floor();
-
-    String baseShift = widget.currentWeekShift; 
-    if (widget.workType == 'fixed') {
-      return baseShift;
-    }
-
-    // چرخش هفتگی بر اساس ردیف هفته در تقویم
-    if (weekRow % 2 == 1) {
-      return baseShift == 'day' ? 'evening' : 'day';
-    }
-    return baseShift;
-  }
-
-  String _getDayShift(int dayNum) {
-    String? manualShift = _getStoredDayDataDirect(dayNum, 'shift', defaultValue: null);
-    if (manualShift != null) return manualShift;
-    return _calculateAutomaticShift(dayNum);
-  }
-
-  int _getDaysInCurrentMonth() {
-    int m = _viewingMonth();
-    int y = _viewingYear();
-    if (m <= 6) return 31;
-    if (m <= 11) return 30;
-    return Jalali(y, 1, 1).isLeapYear() ? 30 : 29;
-  }
-
-  void _changeMonth(int delta) {
-    setState(() {
-      int newMonth = _viewingMonth() + delta;
-      int newYear = _viewingYear();
-      if (newMonth > 12) {
-        newMonth = 1;
-        newYear++;
-      } else if (newMonth < 1) {
-        newMonth = 12;
-        newYear--;
-      }
-      _viewingDate = Jalali(newYear, newMonth, 1);
-      _selectedDay = 1;
-    });
-  }
-
-  double _getTotalForMonth(String key) {
-    int daysInMonth = _getDaysInCurrentMonth();
-    double total = 0.0;
-    for (int i = 1; i <= daysInMonth; i++) {
-      var val = _getStoredDayDataDirect(i, key, defaultValue: 0.0);
-      if (val is num) {
-        total += val.toDouble();
-      }
-    }
-    return total;
-  }
-
-  int _countDailyLeaves() {
-    int daysInMonth = _getDaysInCurrentMonth();
-    int count = 0;
-    for (int i = 1; i <= daysInMonth; i++) {
-      if (_getStoredDayDataDirect(i, 'daily_leave', defaultValue: false)) {
-        count++;
-      }
-    }
-    return count;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    int daysInMonth = _getDaysInCurrentMonth();
-    Jalali firstDayOfMonth = Jalali(_viewingYear(), _viewingMonth(), 1);
-    int startWeekday = firstDayOfMonth.weekDay; // 1=شنبه تا 7=جمعه
-
-    double totalOvertime = _getTotalForMonth('overtime');
-    double totalLeave = _getTotalForMonth('hourly_leave');
-
-    String monthName = firstDayOfMonth.formatter.mN;
-    String yearStr = '${_viewingYear()}';
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(t('title'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF3F51B5),
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            tooltip: t('settings'),
-            onPressed: widget.onResetSettings,
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: _statCard(t('overtime'), '$totalOvertime ${t('hoursUnit')}', Icons.timer, Colors.green),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _statCard(t('leave'), '$totalLeave ${t('hoursUnit')}', Icons.beach_access, Colors.orange),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-
-              // تقویم ماهانه
-              Card(
-                elevation: 3,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                child: Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.arrow_right, size: 28, color: Color(0xFF3F51B5)),
-                            onPressed: () => _changeMonth(1),
-                            tooltip: 'ماه بعد',
-                          ),
-                          Text('$monthName $yearStr',
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF3F51B5))),
-                          IconButton(
-                            icon: const Icon(Icons.arrow_left, size: 28, color: Color(0xFF3F51B5)),
-                            onPressed: () => _changeMonth(-1),
-                            tooltip: 'ماه قبل',
-                          ),
-                        ],
-                      ),
-                      const Divider(height: 16),
-
-                      const Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          Text('ش', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.indigo)),
-                          Text('ی', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.indigo)),
-                          Text('د', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.indigo)),
-                          Text('س', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.indigo)),
-                          Text('چ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.indigo)),
-                          Text('پ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.indigo)),
-                          Text('ج', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.red)),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-
-                      GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 7,
-                          crossAxisSpacing: 3,
-                          mainAxisSpacing: 3,
-                          childAspectRatio: 0.72,
-                        ),
-                        itemCount: daysInMonth + (startWeekday - 1),
-                        itemBuilder: (context, index) {
-                          if (index < startWeekday - 1) {
-                            return const SizedBox.shrink();
-                          }
-                          int dayNum = index - (startWeekday - 2);
-                          bool isSelected = _selectedDay == dayNum;
-                          bool isFriday = (index % 7) == 6;
-
-                          String shiftCode = _getDayShift(dayNum);
-                          bool isDailyLeave = _getStoredDayDataDirect(dayNum, 'daily_leave', defaultValue: false);
-                          double hourlyLeaveVal = _getStoredDayDataDirect(dayNum, 'hourly_leave', defaultValue: 0.0);
-                          double overtimeVal = _getStoredDayDataDirect(dayNum, 'overtime', defaultValue: 0.0);
-                          String noteVal = _getStoredDayDataDirect(dayNum, 'note', defaultValue: '');
-
-                          Color cellColor = isFriday ? Colors.red.shade50.withOpacity(0.5) : Colors.white;
-                          String shiftLabel = '';
-
-                          if (isDailyLeave) {
-                            cellColor = Colors.deepOrange.shade100;
-                            shiftLabel = 'مرخصی';
-                          } else {
-                            if (shiftCode == 'day') {
-                              shiftLabel = 'روز';
-                              cellColor = isFriday ? Colors.red.shade50 : Colors.amber.shade100;
-                            } else if (shiftCode == 'evening') {
-                              shiftLabel = 'عصر';
-                              cellColor = isFriday ? Colors.red.shade50 : Colors.blue.shade100;
-                            } else if (shiftCode == 'night') {
-                              shiftLabel = 'شب';
-                              cellColor = isFriday ? Colors.red.shade50 : Colors.purple.shade100;
-                            }
-                          }
-
-                          return GestureDetector(
-                            onTap: () => setState(() => _selectedDay = dayNum),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: isSelected ? const Color(0xFF3F51B5) : cellColor,
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                  color: isSelected ? Colors.indigo.shade900 : (isFriday ? Colors.red.shade200 : Colors.grey.shade300),
-                                  width: isSelected ? 2 : 1,
-                                ),
-                              ),
-                              padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    '$dayNum',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
-                                      color: isSelected ? Colors.white : (isFriday ? Colors.red.shade700 : Colors.black87),
-                                    ),
-                                  ),
-                                  Column(
-                                    children: [
-                                      if (shiftLabel.isNotEmpty)
-                                        Text(
-                                          shiftLabel,
-                                          style: TextStyle(fontSize: 8, color: isSelected ? Colors.white70 : Colors.grey.shade800),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      if (overtimeVal > 0)
-                                        Text(
-                                          '+${overtimeVal}',
-                                          style: TextStyle(fontSize: 7, fontWeight: FontWeight.bold, color: isSelected ? Colors.greenAccent : Colors.green.shade800),
-                                        ),
-                                      if (hourlyLeaveVal > 0)
-                                        Text(
-                                          'م.${hourlyLeaveVal}',
-                                          style: TextStyle(fontSize: 7, fontWeight: FontWeight.bold, color: isSelected ? Colors.orangeAccent : Colors.orange.shade800),
-                                        ),
-                                      if (noteVal.isNotEmpty)
-                                        Container(
-                                          margin: const EdgeInsets.only(top: 1),
-                                          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 0.5),
-                                          decoration: BoxDecoration(
-                                            color: isSelected ? Colors.pink.shade300 : Colors.pink.shade100,
-                                            borderRadius: BorderRadius.circular(4),
-                                          ),
-                                          child: Text(
-                                            'یادداشت',
-                                            style: TextStyle(fontSize: 6, color: isSelected ? Colors.white : Colors.pink.shade900),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              const Icon(Icons.language, size: 64, color: Colors.deepPurple),
               const SizedBox(height: 16),
-
-              // مدیریت روز انتخاب شده
-              Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                child: Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('${t('selectDay')} (روز $_selectedDay $monthName):', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                      const SizedBox(height: 10),
-                      
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _shiftButton(t('dayShift'), Colors.amber, 'day'),
-                          _shiftButton(t('eveningShift'), Colors.blue, 'evening'),
-                          _shiftButton(t('nightShift'), Colors.purple, 'night'),
-                        ],
-                      ),
-                      const Divider(height: 16),
-
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(backgroundColor: Colors.deepOrange, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 8)),
-                            onPressed: () => _toggleDailyLeave(_selectedDay),
-                            icon: const Icon(Icons.free_breakfast, size: 16),
-                            label: Text(_getStoredDayDataDirect(_selectedDay, 'daily_leave', defaultValue: false) ? 'لغو مرخصی' : t('dailyLeave'), style: const TextStyle(fontSize: 11)),
-                          ),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange.shade700, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 8)),
-                            onPressed: () => _showHourlyLeaveDialog(_selectedDay),
-                            icon: const Icon(Icons.hourglass_bottom, size: 16),
-                            label: Text(t('hourlyLeave'), style: const TextStyle(fontSize: 11)),
-                          ),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(backgroundColor: Colors.green.shade700, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 8)),
-                            onPressed: () => _showOvertimeDialog(_selectedDay),
-                            icon: const Icon(Icons.add_task, size: 16),
-                            label: Text(t('overtimeBtn'), style: const TextStyle(fontSize: 11)),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-
-                      TextField(
-                        controller: TextEditingController(text: _getStoredDayDataDirect(_selectedDay, 'note', defaultValue: ''))
-                          ..selection = TextSelection.fromPosition(TextPosition(offset: (_getStoredDayDataDirect(_selectedDay, 'note', defaultValue: '') as String).length)),
-                        decoration: InputDecoration(
-                          labelText: t('noteHint'),
-                          labelStyle: TextStyle(color: Colors.pink.shade700, fontSize: 12),
-                          prefixIcon: Icon(Icons.note_alt, color: Colors.pink.shade400, size: 18),
-                          focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.pink.shade400, width: 2), borderRadius: BorderRadius.circular(8)),
-                          enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.pink.shade200), borderRadius: BorderRadius.circular(8)),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        ),
-                        style: const TextStyle(fontSize: 13),
-                        onChanged: (val) => _updateDayData(_selectedDay, 'note', val),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // نمودار آمار مرخصی و اضافه کاری
-              Screenshot(
-                controller: _screenshotController,
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [BoxShadow(color: Colors.grey.shade200, blurRadius: 6, spreadRadius: 2)],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(t('chartTitle'), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF3F51B5))),
-                      const SizedBox(height: 20),
-                      SizedBox(
-                        height: 180,
-                        child: BarChart(
-                          BarChartData(
-                            alignment: BarChartAlignment.spaceAround,
-                            maxY: 40,
-                            barGroups: [
-                              BarChartGroupData(
-                                x: 0,
-                                barRods: [
-                                  BarChartRodData(
-                                    toY: totalOvertime,
-                                    color: Colors.green,
-                                    width: 18,
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                ],
-                              ),
-                              BarChartGroupData(
-                                x: 1,
-                                barRods: [
-                                  BarChartRodData(
-                                    toY: totalLeave,
-                                    color: Colors.orange,
-                                    width: 18,
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                ],
-                              ),
-                              BarChartGroupData(
-                                x: 2,
-                                barRods: [
-                                  BarChartRodData(
-                                    toY: _countDailyLeaves().toDouble(),
-                                    color: Colors.deepOrange,
-                                    width: 18,
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                ],
-                              ),
-                            ],
-                            titlesData: FlTitlesData(
-                              leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                              topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                              rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                              bottomTitles: AxisTitles(
-                                sideTitles: SideTitles(
-                                  showTitles: true,
-                                  getTitlesWidget: (value, meta) {
-                                    switch (value.toInt()) {
-                                      case 0: return const Text('اضافه کار (ساعت)', style: TextStyle(fontSize: 10));
-                                      case 1: return const Text('مرخصی ساعتی', style: TextStyle(fontSize: 10));
-                                      case 2: return const Text('مرخصی روزانه', style: TextStyle(fontSize: 10));
-                                    }
-                                    return const Text('');
-                                  },
-                                ),
-                              ),
-                            ),
-                            gridData: const FlGridData(show: false),
-                            borderData: FlBorderData(show: false),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _captureAndSaveChart,
-                  icon: const Icon(Icons.download_rounded, color: Colors.white),
-                  label: Text(t('saveChart'), style: const TextStyle(color: Colors.white, fontSize: 15)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF3F51B5),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ),
+              const Text('لطفاً زبان برنامه را انتخاب کنید / Choose your language / Sprache wählen',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 32),
+              _buildLangButton(context, 'فارسی (Persian)', 'fa'),
+              const SizedBox(height: 12),
+              _buildLangButton(context, 'English', 'en'),
+              const SizedBox(height: 12),
+              _buildLangButton(context, 'Deutsch (German)', 'de'),
             ],
           ),
         ),
@@ -820,131 +184,843 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     );
   }
 
-  Widget _statCard(String title, String value, IconData icon, Color color) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(14.0),
-        child: Row(
-          children: [
-            CircleAvatar(backgroundColor: color.withOpacity(0.15), child: Icon(icon, color: color, size: 20)),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                const SizedBox(height: 4),
-                Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ],
+  Widget _buildLangButton(BuildContext context, String title, String code) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.deepPurple,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
+        onPressed: () => onSelected(code),
+        child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
       ),
     );
   }
+}
 
-  Widget _shiftButton(String label, Color color, String shiftCode) {
-    return ElevatedButton(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color.withOpacity(0.8),
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-      onPressed: () {
-        _updateDayData(_selectedDay, 'shift', shiftCode);
-        _updateDayData(_selectedDay, 'daily_leave', false);
-      },
-      child: Text(label, style: const TextStyle(fontSize: 12)),
-    );
+class MainContainerScreen extends StatefulWidget {
+  final String langCode;
+  const MainContainerScreen({Key? key, required this.langCode}) : super(key: key);
+
+  @override
+  State<MainContainerScreen> createState() => _MainContainerScreenState();
+}
+
+class _MainContainerScreenState extends State<MainContainerScreen> {
+  int _currentIndex = 0;
+  Map<String, Map<String, dynamic>> monthlyData = {};
+  String mainShiftType = '';
+  String subShiftDetail = '';
+  
+  int currentMonthIndex = Jalali.now().month - 1;
+  int currentYear = Jalali.now().year;
+
+  final List<String> shamsiMonths = [
+    'فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور',
+    'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAllData();
   }
 
-  void _toggleDailyLeave(int day) {
-    bool current = _getStoredDayDataDirect(day, 'daily_leave', defaultValue: false);
-    _updateDayData(day, 'daily_leave', !current);
-  }
+  Future<void> _loadAllData() async {
+    final prefs = await SharedPreferences.getInstance();
+    String? storedData = prefs.getString('saved_monthly_tracker_data');
+    String? storedMainShift = prefs.getString('main_shift_type');
+    String? storedSubShift = prefs.getString('sub_shift_detail');
 
-  void _showHourlyLeaveDialog(int day) {
-    double currentVal = _getStoredDayDataDirect(day, 'hourly_leave', defaultValue: 0.0);
-    TextEditingController controller = TextEditingController(text: currentVal > 0 ? currentVal.toString() : '');
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('مرخصی ساعتی روز $day'),
-        content: TextField(
-          controller: controller,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(labelText: 'تعداد ساعات مرخصی'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('لغو')),
-          ElevatedButton(
-            onPressed: () {
-              double val = double.tryParse(controller.text) ?? 0.0;
-              _updateDayData(day, 'hourly_leave', val);
-              Navigator.pop(context);
-            },
-            child: const Text('ثبت'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showOvertimeDialog(int day) {
-    double currentVal = _getStoredDayDataDirect(day, 'overtime', defaultValue: 0.0);
-    TextEditingController controller = TextEditingController(text: currentVal > 0 ? currentVal.toString() : '');
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('اضافه کاری روز $day'),
-        content: TextField(
-          controller: controller,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(labelText: 'تعداد ساعات اضافه کاری'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('لغو')),
-          ElevatedButton(
-            onPressed: () {
-              double val = double.tryParse(controller.text) ?? 0.0;
-              _updateDayData(day, 'overtime', val);
-              Navigator.pop(context);
-            },
-            child: const Text('ثبت'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _captureAndSaveChart() async {
-    try {
-      final imageUint8List = await _screenshotController.capture();
-      if (imageUint8List != null) {
-        final result = await ImageGallerySaverPlus.saveImage(
-          imageUint8List,
-          quality: 100,
-          name: "Stats_${DateTime.now().millisecondsSinceEpoch}",
-        );
-
-        if (result != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(t('successSave')), backgroundColor: Colors.green),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(t('errorSave')), backgroundColor: Colors.red),
-          );
-        }
+    setState(() {
+      if (storedData != null) {
+        Map<String, dynamic> decoded = jsonDecode(storedData);
+        monthlyData = decoded.map((key, value) => MapEntry(key, Map<String, dynamic>.from(value)));
       }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('خطا: $e'), backgroundColor: Colors.red),
-      );
+      mainShiftType = storedMainShift ?? '';
+      subShiftDetail = storedSubShift ?? '';
+    });
+
+    if (mainShiftType.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showShiftSetupWizard();
+      });
     }
+  }
+
+  Future<void> _saveAllData() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('saved_monthly_tracker_data', jsonEncode(monthlyData));
+    await prefs.setString('main_shift_type', mainShiftType);
+    await prefs.setString('sub_shift_detail', subShiftDetail);
+  }
+
+  void updateMonthlyData(Map<String, Map<String, dynamic>> newData) {
+    setState(() {
+      monthlyData = newData;
+    });
+    _saveAllData(); 
+  }
+
+  void changeMonth(int year, int monthIndex) {
+    setState(() {
+      currentYear = year;
+      currentMonthIndex = monthIndex;
+    });
+  }
+
+  void _showShiftSetupWizard() {
+    AppStrings strings = AppStrings(widget.langCode);
+    String tempMain = mainShiftType.isEmpty ? 'همیشه صبح' : mainShiftType;
+    String tempSub = subShiftDetail;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: false,
+      enableDrag: false,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                child: SafeArea(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(strings.get('settings'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.deepPurple), textAlign: TextAlign.center),
+                      const SizedBox(height: 15),
+                      Text(strings.get('select_shift_type'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        value: tempMain.isNotEmpty ? tempMain : 'همیشه صبح',
+                        decoration: InputDecoration(border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
+                        items: ['12-24', '24-48', 'همیشه صبح', 'همیشه عصر', 'همیشه شب', 'یک هفته روز یک هفته عصر']
+                            .map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                        onChanged: (val) {
+                          setModalState(() {
+                            tempMain = val!;
+                            if (tempMain != 'یک هفته روز یک هفته عصر') tempSub = '';
+                          });
+                        },
+                      ),
+                      if (tempMain == 'یک هفته روز یک هفته عصر') ...[
+                        const SizedBox(height: 15),
+                        Text(strings.get('how_is_this_week'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.deepOrange)),
+                        const SizedBox(height: 8),
+                        DropdownButtonFormField<String>(
+                          value: tempSub.isNotEmpty ? tempSub : 'این هفته صبح‌کار',
+                          decoration: InputDecoration(border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
+                          items: ['این هفته صبح‌کار', 'این هفته عصر‌کار']
+                              .map((sub) => DropdownMenuItem(value: sub, child: Text(sub))).toList(),
+                          onChanged: (val) => setModalState(() => tempSub = val!),
+                        ),
+                      ],
+                      const SizedBox(height: 24),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 12)),
+                        onPressed: () {
+                          setState(() {
+                            mainShiftType = tempMain;
+                            subShiftDetail = tempSub;
+                          });
+                          _saveAllData();
+                          Navigator.pop(context);
+                        },
+                        child: Text(strings.get('save_shift'), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    AppStrings strings = AppStrings(widget.langCode);
+
+    final List<Widget> screens = [
+      ShamsiCalendarScreen(
+        monthlyData: monthlyData,
+        currentYear: currentYear,
+        currentMonthIndex: currentMonthIndex,
+        mainShiftType: mainShiftType,
+        subShiftDetail: subShiftDetail,
+        langCode: widget.langCode,
+        onDataChanged: updateMonthlyData,
+        onMonthChanged: changeMonth,
+        onOpenShiftSetup: _showShiftSetupWizard,
+      ),
+      ReportsChartScreen(
+        monthlyData: monthlyData,
+        currentYear: currentYear,
+        currentMonthIndex: currentMonthIndex,
+        shamsiMonths: shamsiMonths,
+        langCode: widget.langCode,
+      ),
+      SettingsScreen(
+        currentLang: widget.langCode,
+        onOpenShiftSetup: _showShiftSetupWizard,
+      ),
+    ];
+
+    return Scaffold(
+      body: SafeArea(
+        child: screens[_currentIndex],
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        selectedItemColor: Colors.deepPurple,
+        unselectedItemColor: Colors.grey,
+        onTap: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        items: [
+          BottomNavigationBarItem(icon: const Icon(Icons.calendar_month), label: strings.get('tab_calendar')),
+          BottomNavigationBarItem(icon: const Icon(Icons.bar_chart), label: strings.get('tab_reports')),
+          BottomNavigationBarItem(icon: const Icon(Icons.settings), label: strings.get('settings')),
+        ],
+      ),
+    );
+  }
+}
+
+class ShamsiCalendarScreen extends StatelessWidget {
+  final Map<String, Map<String, dynamic>> monthlyData;
+  final int currentYear;
+  final int currentMonthIndex;
+  final String mainShiftType;
+  final String subShiftDetail;
+  final String langCode;
+  final Function(Map<String, Map<String, dynamic>>) onDataChanged;
+  final Function(int, int) onMonthChanged;
+  final VoidCallback onOpenShiftSetup;
+
+  const ShamsiCalendarScreen({
+    Key? key,
+    required this.monthlyData,
+    required this.currentYear,
+    required this.currentMonthIndex,
+    required this.mainShiftType,
+    required this.subShiftDetail,
+    required this.langCode,
+    required this.onDataChanged,
+    required this.onMonthChanged,
+    required this.onOpenShiftSetup,
+  }) : super(key: key);
+
+  final List<String> shamsiMonths = const [
+    'فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور',
+    'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'
+  ];
+
+  final List<String> weekDays = const [
+    'شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه'
+  ];
+
+  String get _currentMonthKey => '$currentYear-$currentMonthIndex';
+
+  int get currentMonthOvertime {
+    final monthMap = monthlyData[_currentMonthKey] ?? {};
+    int total = 0;
+    monthMap.forEach((day, data) {
+      if (data is Map && data['overtime'] != null) {
+        total += int.tryParse(data['overtime'].toString()) ?? 0;
+      }
+    });
+    return total;
+  }
+
+  int get currentMonthLeaveDays {
+    final monthMap = monthlyData[_currentMonthKey] ?? {};
+    int total = 0;
+    monthMap.forEach((day, data) {
+      if (data is Map && data['status'] == 'leave_daily') {
+        total += 1;
+      }
+    });
+    return total;
+  }
+
+  int get currentMonthLeaveHours {
+    final monthMap = monthlyData[_currentMonthKey] ?? {};
+    int total = 0;
+    monthMap.forEach((day, data) {
+      if (data is Map && data['leave_hours'] != null) {
+        total += int.tryParse(data['leave_hours'].toString()) ?? 0;
+      }
+    });
+    return total;
+  }
+
+  void _previousMonth() {
+    int y = currentYear;
+    int m = currentMonthIndex;
+    if (m > 0) m--; else { m = 11; y--; }
+    onMonthChanged(y, m);
+  }
+
+  void _nextMonth() {
+    int y = currentYear;
+    int m = currentMonthIndex;
+    if (m < 11) m++; else { m = 0; y++; }
+    onMonthChanged(y, m);
+  }
+
+  bool _isToday(int dayNum) {
+    Jalali jNow = Jalali.now();
+    return currentYear == jNow.year && 
+           currentMonthIndex == (jNow.month - 1) && 
+           dayNum == jNow.day;
+  }
+
+  String _getDefaultDayShiftLabel(int dayNum) {
+    if (mainShiftType == 'همیشه صبح') return 'روزکار';
+    if (mainShiftType == 'همیشه عصر') return 'عصرکار';
+    if (mainShiftType == 'همیشه شب') return 'شب‌کار';
+    if (mainShiftType == '12-24') return dayNum % 2 == 1 ? 'شیفت 12' : 'استراحت';
+    if (mainShiftType == '24-48') return dayNum % 3 == 1 ? 'شیفت 24' : 'استراحت';
+    if (mainShiftType == 'یک هفته روز یک هفته عصر') {
+      bool isFirstHalfWeek = ((dayNum - 1) ~/ 7) % 2 == 0;
+      if (subShiftDetail == 'این هفته صبح‌کار') {
+        // اصلاح جهت نمایش به‌طوری که انتخاب روزکار/عصرکار کاملاً درست و منطقی اعمال شود
+        return isFirstHalfWeek ? 'عصرکار' : 'روزکار';
+      } else {
+        return isFirstHalfWeek ? 'روزکار' : 'عصرکار';
+      }
+    }
+    return 'عادی';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    AppStrings strings = AppStrings(langCode);
+
+    return Column(
+      children: [
+        Container(
+          margin: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(colors: [Color(0xFF5E35B1), Color(0xFF7E57C2)]),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildHeaderStat(strings.get('overtime'), '$currentMonthOvertime ساعت', Icons.timer),
+              Container(height: 35, width: 1, color: Colors.white30),
+              _buildHeaderStat(strings.get('daily_leave'), '$currentMonthLeaveDays روز', Icons.event_busy),
+              Container(height: 35, width: 1, color: Colors.white30),
+              _buildHeaderStat(strings.get('hourly_leave'), '$currentMonthLeaveHours ساعت', Icons.hourglass_bottom),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  '${strings.get('current_shift')} $mainShiftType ${subShiftDetail.isNotEmpty ? "($subShiftDetail)" : ""}',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              ElevatedButton.icon(
+                onPressed: onOpenShiftSetup,
+                icon: const Icon(Icons.settings, size: 14),
+                label: Text(strings.get('change_shift'), style: const TextStyle(fontSize: 12)),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, foregroundColor: Colors.white),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 4),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(onPressed: _nextMonth, icon: const Icon(Icons.arrow_forward_ios, size: 16), color: Colors.deepPurple),
+              Text('${shamsiMonths[currentMonthIndex]} $currentYear', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.deepPurple)),
+              IconButton(onPressed: _previousMonth, icon: const Icon(Icons.arrow_back_ios, size: 16), color: Colors.deepPurple),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: weekDays.map((day) {
+              bool isFri = day == 'جمعه';
+              return Expanded(
+                child: Center(
+                  child: Text(day, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isFri ? Colors.red.shade700 : Colors.grey.shade700)),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+        const Divider(height: 12),
+        Expanded(
+          child: GridView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+              childAspectRatio: 0.8,
+              crossAxisSpacing: 5,
+              mainAxisSpacing: 5,
+            ),
+            itemCount: 31,
+            itemBuilder: (context, index) {
+              int dayNum = index + 1;
+              bool isFriday = (index % 7 == 6);
+              bool isTodayFlag = _isToday(dayNum);
+              
+              final monthMap = monthlyData[_currentMonthKey] ?? {};
+              final dayData = monthMap[dayNum.toString()] as Map<String, dynamic>?;
+
+              String? status = dayData?['status'];
+              String? otVal = dayData?['overtime'];
+              String? lhVal = dayData?['leave_hours'];
+              String? note = dayData?['note'];
+              
+              String defaultShiftLabel = _getDefaultDayShiftLabel(dayNum);
+
+              Color bgColor = isFriday ? Colors.red.shade50 : Colors.white;
+              Color borderColor = isFriday ? Colors.red.shade200 : Colors.grey.shade300;
+              Color textColor = isFriday ? Colors.red.shade800 : Colors.black87;
+
+              if (isTodayFlag) {
+                borderColor = Colors.amber.shade800;
+                bgColor = Colors.amber.shade50;
+              }
+              if (status == 'overtime') {
+                bgColor = Colors.purple.shade50;
+                borderColor = Colors.purple.shade300;
+              } else if (status == 'leave_daily') {
+                bgColor = Colors.orange.shade100;
+                borderColor = Colors.orange.shade400;
+              } else if (status == 'leave_hourly') {
+                bgColor = Colors.teal.shade50;
+                borderColor = Colors.teal.shade300;
+              }
+
+              return InkWell(
+                onTap: () => _showDaySettingsModal(context, dayNum),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: bgColor,
+                    border: Border.all(color: borderColor, width: isTodayFlag ? 2 : 1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text('$dayNum', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isTodayFlag ? Colors.amber.shade900 : textColor)),
+                          if (note != null && note.trim().isNotEmpty) ...[
+                            const SizedBox(width: 2),
+                            const Icon(Icons.note, size: 10, color: Colors.blueAccent),
+                          ]
+                        ],
+                      ),
+                      const SizedBox(height: 1),
+                      Text(defaultShiftLabel, style: TextStyle(fontSize: 8, color: Colors.grey.shade800, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      if (otVal != null && otVal.isNotEmpty && otVal != '0')
+                        Text('+${otVal}ک', style: TextStyle(fontSize: 8, color: Colors.purple.shade800, fontWeight: FontWeight.bold)),
+                      if (status == 'leave_daily')
+                        const Text('م.روز', style: TextStyle(fontSize: 7, color: Colors.deepOrange, fontWeight: FontWeight.bold)),
+                      if (lhVal != null && lhVal.isNotEmpty && lhVal != '0')
+                        Text('${lhVal}س.م', style: TextStyle(fontSize: 8, color: Colors.teal.shade800, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHeaderStat(String title, String val, IconData icon) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: Colors.white, size: 16),
+        const SizedBox(height: 2),
+        Text(val, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+        Text(title, style: const TextStyle(color: Colors.white70, fontSize: 8)),
+      ],
+    );
+  }
+
+  void _showDaySettingsModal(BuildContext context, int dayNum) {
+    AppStrings strings = AppStrings(langCode);
+    final monthMap = monthlyData[_currentMonthKey] ?? {};
+    final dayData = monthMap[dayNum.toString()] as Map<String, dynamic>?;
+
+    final TextEditingController otController = TextEditingController(text: dayData?['overtime'] ?? '');
+    final TextEditingController leaveHourController = TextEditingController(text: dayData?['leave_hours'] ?? '');
+    final TextEditingController noteController = TextEditingController(text: dayData?['note'] ?? '');
+    
+    String leaveType = dayData?['status'] ?? 'بدون مرخصی';
+    if (leaveType == 'leave_daily') {
+      leaveType = 'مرخصی روزانه';
+    } else if (leaveType == 'leave_hourly') {
+      leaveType = 'مرخصی ساعتی';
+    } else {
+      leaveType = 'بدون مرخصی';
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+                child: SafeArea(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text('${strings.get('day_settings')} $dayNum ${shamsiMonths[currentMonthIndex]}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                        const SizedBox(height: 15),
+                        TextField(
+                          controller: otController,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(labelText: strings.get('overtime'), border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
+                        ),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          value: leaveType,
+                          decoration: InputDecoration(labelText: strings.get('daily_leave'), border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
+                          items: ['بدون مرخصی', 'مرخصی روزانه', 'مرخصی ساعتی'].map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                          onChanged: (val) => setModalState(() => leaveType = val!),
+                        ),
+                        if (leaveType == 'مرخصی ساعتی') ...[
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: leaveHourController,
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(labelText: strings.get('hourly_leave_hours'), border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
+                          ),
+                        ],
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: noteController,
+                          decoration: InputDecoration(labelText: strings.get('daily_note'), border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
+                        ),
+                        const SizedBox(height: 20),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, foregroundColor: Colors.white),
+                          onPressed: () {
+                            String ot = otController.text.trim();
+                            String lh = leaveHourController.text.trim();
+                            String note = noteController.text.trim();
+
+                            Map<String, Map<String, dynamic>> updatedData = Map.from(monthlyData);
+                            if (updatedData[_currentMonthKey] == null) {
+                              updatedData[_currentMonthKey] = {};
+                            }
+
+                            String finalStatus = 'normal';
+                            if (leaveType == 'مرخصی روزانه') finalStatus = 'leave_daily';
+                            else if (leaveType == 'مرخصی ساعتی') finalStatus = 'leave_hourly';
+                            else if (ot.isNotEmpty && ot != '0') finalStatus = 'overtime';
+
+                            updatedData[_currentMonthKey]![dayNum.toString()] = {
+                              'status': finalStatus,
+                              'overtime': ot,
+                              'leave_hours': leaveType == 'مرخصی ساعتی' ? lh : '',
+                              'note': note,
+                            };
+
+                            onDataChanged(updatedData);
+                            Navigator.pop(context);
+                          },
+                          child: Text(strings.get('save_changes')),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class ReportsChartScreen extends StatelessWidget {
+  final Map<String, Map<String, dynamic>> monthlyData;
+  final int currentYear;
+  final int currentMonthIndex;
+  final List<String> shamsiMonths;
+  final String langCode;
+
+  const ReportsChartScreen({
+    Key? key,
+    required this.monthlyData,
+    required this.currentYear,
+    required this.currentMonthIndex,
+    required this.shamsiMonths,
+    required this.langCode,
+  }) : super(key: key);
+
+  String get _currentMonthKey => '$currentYear-$currentMonthIndex';
+
+  int get totalOvertime {
+    final monthMap = monthlyData[_currentMonthKey] ?? {};
+    int total = 0;
+    monthMap.forEach((day, data) {
+      if (data is Map && data['overtime'] != null) {
+        total += int.tryParse(data['overtime'].toString()) ?? 0;
+      }
+    });
+    return total;
+  }
+
+  int get totalLeaveDays {
+    final monthMap = monthlyData[_currentMonthKey] ?? {};
+    int total = 0;
+    monthMap.forEach((day, data) {
+      if (data is Map && data['status'] == 'leave_daily') total += 1;
+    });
+    return total;
+  }
+
+  int get totalLeaveHours {
+    final monthMap = monthlyData[_currentMonthKey] ?? {};
+    int total = 0;
+    monthMap.forEach((day, data) {
+      if (data is Map && data['leave_hours'] != null) {
+        total += int.tryParse(data['leave_hours'].toString()) ?? 0;
+      }
+    });
+    return total;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    AppStrings strings = AppStrings(langCode);
+    String monthName = shamsiMonths[currentMonthIndex];
+
+    // محاسبه حداکثر مقدار برای مقیاس‌بندی نمودار ستونی
+    double maxBarValue = [totalOvertime.toDouble(), (totalLeaveDays * 8).toDouble(), totalLeaveHours.toDouble()].reduce((a, b) => a > b ? a : b);
+    if (maxBarValue < 10) maxBarValue = 10; // حداقل سقف برای نمایش بهتر نمودار
+
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('$monthName $currentYear', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.deepPurple)),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(child: _buildReportCard(strings.get('overtime'), '$totalOvertime ساعت', Colors.purple.shade50, Colors.purple.shade800, Icons.timer)),
+              const SizedBox(width: 8),
+              Expanded(child: _buildReportCard(strings.get('daily_leave'), '$totalLeaveDays روز', Colors.orange.shade50, Colors.orange.shade800, Icons.event_busy)),
+              const SizedBox(width: 8),
+              Expanded(child: _buildReportCard(strings.get('hourly_leave'), '$totalLeaveHours ساعت', Colors.teal.shade50, Colors.teal.shade800, Icons.hourglass_bottom)),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade300)),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // اضافه کردن اعداد و مقادیر در کنار/بالای ستون‌های نمودار
+                  Expanded(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        _buildBar(strings.get('overtime'), totalOvertime.toDouble(), maxBarValue, Colors.purple),
+                        _buildBar(strings.get('daily_leave'), (totalLeaveDays * 8).toDouble(), maxBarValue, Colors.orange, subLabel: '($totalLeaveDays روز)'),
+                        _buildBar(strings.get('hourly_leave'), totalLeaveHours.toDouble(), maxBarValue, Colors.teal),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 30),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, foregroundColor: Colors.white),
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(strings.get('chart_saved_msg'))));
+                    },
+                    icon: const Icon(Icons.download, size: 16),
+                    label: Text(strings.get('save_chart_image')),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReportCard(String title, String value, Color bgColor, Color textColor, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(12), border: Border.all(color: textColor.withOpacity(0.3))),
+      child: Column(
+        children: [
+          Icon(icon, color: textColor, size: 20),
+          const SizedBox(height: 6),
+          Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: textColor)),
+          const SizedBox(height: 2),
+          Text(title, style: TextStyle(fontSize: 10, color: Colors.grey.shade700)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBar(String label, double value, double maxVal, Color color, {String? subLabel}) {
+    // محاسبه ارتفاع متناسب با سقف نمودار (حداکثر ۱۲۰ پیکسل ارتفاع ستون)
+    double heightFactor = (value / maxVal).clamp(0.08, 1.0);
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        // نمایش مقدار عددی دقیق بالای ستون
+        Text(
+          value == value.toInt() ? '${value.toInt()}' : '${value.toStringAsFixed(1)}', 
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color)
+        ),
+        if (subLabel != null)
+          Text(subLabel, style: TextStyle(fontSize: 9, color: Colors.grey.shade600)),
+        const SizedBox(height: 4),
+        Container(
+          width: 38,
+          height: 120 * heightFactor,
+          decoration: BoxDecoration(
+            color: color, 
+            borderRadius: BorderRadius.circular(6),
+            boxShadow: [
+              BoxShadow(color: color.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2))
+            ]
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+      ],
+    );
+  }
+}
+
+class SettingsScreen extends StatelessWidget {
+  final String currentLang;
+  final VoidCallback onOpenShiftSetup;
+
+  const SettingsScreen({Key? key, required this.currentLang, required this.onOpenShiftSetup}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    AppStrings strings = AppStrings(currentLang);
+
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(strings.get('settings'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.deepPurple)),
+          const SizedBox(height: 20),
+          ListTile(
+            title: Text(strings.get('language')),
+            subtitle: Text(currentLang == 'en' ? 'English' : (currentLang == 'de' ? 'Deutsch' : 'فارسی')),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            tileColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            onTap: () {
+              _showLanguageDialog(context);
+            },
+          ),
+          const SizedBox(height: 12),
+          ListTile(
+            title: Text(strings.get('change_shift']),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            tileColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            onTap: onOpenShiftSetup,
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showLanguageDialog(BuildContext context) {
+    AppStrings strings = AppStrings(currentLang);
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(strings.get('select_language')),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                title: const Text('فارسی'),
+                onTap: () {
+                  ShiftTrackerApp.setLocale(context, 'fa');
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                title: const Text('English'),
+                onTap: () {
+                  ShiftTrackerApp.setLocale(context, 'en');
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                title: const Text('Deutsch'),
+                onTap: () {
+                  ShiftTrackerApp.setLocale(context, 'de');
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }
