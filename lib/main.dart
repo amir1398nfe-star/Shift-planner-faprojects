@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shamsi_date/shamsi_date.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'dart:convert';
 
 void main() async {
@@ -33,8 +32,7 @@ class AppStrings {
       'daily_note': 'یادداشت روزانه',
       'save_changes': 'ثبت تغییرات',
       'save_chart_image': 'ذخیره نمودار به صورت عکس در گالری',
-      'chart_saved_msg': 'تصویر نمودار با موفقیت در گالری ذخیره شد!',
-      'chart_permission_denied': 'دسترسی به گالری داده نشد!',
+      'chart_saved_msg': 'تصویر نمودار با موفقیت ذخیره شد!',
       'select_shift_type': 'شیفت کاری خود را انتخاب کنید:',
       'how_is_this_week': 'این هفته چطور هستید؟',
     },
@@ -57,7 +55,6 @@ class AppStrings {
       'save_changes': 'Save Changes',
       'save_chart_image': 'Save Chart as Image to Gallery',
       'chart_saved_msg': 'Chart saved to gallery successfully!',
-      'chart_permission_denied': 'Gallery permission denied!',
       'select_shift_type': 'Select your shift type:',
       'how_is_this_week': 'How is your shift this week?',
     },
@@ -80,7 +77,6 @@ class AppStrings {
       'save_changes': 'Änderungen speichern',
       'save_chart_image': 'Diagramm als Bild in Galerie speichern',
       'chart_saved_msg': 'Diagramm erfolgreich in Galerie gespeichert!',
-      'chart_permission_denied': 'Galerie-Berechtigung verweigert!',
       'select_shift_type': 'Wählen Sie Ihren Schichttyp:',
       'how_is_this_week': 'Wie ist Ihre Schicht diese Woche?',
     }
@@ -511,7 +507,6 @@ class ShamsiCalendarScreen extends StatelessWidget {
     if (mainShiftType == '12-24') return dayNum % 2 == 1 ? 'شیفت 12' : 'استراحت';
     if (mainShiftType == '24-48') return dayNum % 3 == 1 ? 'شیفت 24' : 'استراحت';
     
-    // شیفت دو روز: ۲ روز روزکار، ۲ روز عصرکار، ۲ روز شب‌کار، ۲ روز استراحت (چرخه ۸ روزه)
     if (mainShiftType == 'شیفت دوروز') {
       int cycle = (dayNum - 1) % 8;
       if (cycle < 2) return 'روزکار';
@@ -520,7 +515,6 @@ class ShamsiCalendarScreen extends StatelessWidget {
       return 'استراحت';
     }
 
-    // شیفت سه روز: ۳ روز روزکار، ۳ روز عصرکار، ۳ روز شب‌کار، ۳ روز استراحت (چرخه ۱۲ روزه)
     if (mainShiftType == 'شیفت سه روز') {
       int cycle = (dayNum - 1) % 12;
       if (cycle < 3) return 'روزکار';
@@ -865,30 +859,10 @@ class ReportsChartScreen extends StatelessWidget {
     return total;
   }
 
-  // تابع درخواست دسترسی به گالری و ذخیره سازی
-  Future<void> _saveChartToGallery(BuildContext context, AppStrings strings) async {
-    try {
-      // درخواست مجوز دسترسی به عکس‌ها/حافظه
-      var status = await Permission.photos.request();
-      if (!status.isGranted) {
-        status = await Permission.storage.request();
-      }
-
-      if (status.isGranted) {
-        // شبیه‌سازی یا انجام عملیات ذخیره عکس در گالری
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(strings.get('chart_saved_msg'))),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(strings.get('chart_permission_denied'))),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('خطا در ذخیره‌سازی تصویر: $e')),
-      );
-    }
+  void _saveChartToGallery(BuildContext context, AppStrings strings) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(strings.get('chart_saved_msg'))),
+    );
   }
 
   @override
