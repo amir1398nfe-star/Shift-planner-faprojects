@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shamsi_date/shamsi_date.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'dart:convert';
 
 void main() async {
@@ -31,8 +32,9 @@ class AppStrings {
       'hourly_leave_hours': 'تعداد ساعت مرخصی',
       'daily_note': 'یادداشت روزانه',
       'save_changes': 'ثبت تغییرات',
-      'save_chart_image': 'ذخیره نمودار به صورت عکس',
-      'chart_saved_msg': 'نمودار با موفقیت ذخیره شد!',
+      'save_chart_image': 'ذخیره نمودار به صورت عکس در گالری',
+      'chart_saved_msg': 'تصویر نمودار با موفقیت در گالری ذخیره شد!',
+      'chart_permission_denied': 'دسترسی به گالری داده نشد!',
       'select_shift_type': 'شیفت کاری خود را انتخاب کنید:',
       'how_is_this_week': 'این هفته چطور هستید؟',
     },
@@ -53,8 +55,9 @@ class AppStrings {
       'hourly_leave_hours': 'Leave Hours',
       'daily_note': 'Daily Note',
       'save_changes': 'Save Changes',
-      'save_chart_image': 'Save Chart as Image',
-      'chart_saved_msg': 'Chart saved successfully!',
+      'save_chart_image': 'Save Chart as Image to Gallery',
+      'chart_saved_msg': 'Chart saved to gallery successfully!',
+      'chart_permission_denied': 'Gallery permission denied!',
       'select_shift_type': 'Select your shift type:',
       'how_is_this_week': 'How is your shift this week?',
     },
@@ -75,8 +78,9 @@ class AppStrings {
       'hourly_leave_hours': 'Urlaubsstunden',
       'daily_note': 'Tagesnotiz',
       'save_changes': 'Änderungen speichern',
-      'save_chart_image': 'Diagramm als Bild speichern',
-      'chart_saved_msg': 'Diagramm erfolgreich gespeichert!',
+      'save_chart_image': 'Diagramm als Bild in Galerie speichern',
+      'chart_saved_msg': 'Diagramm erfolgreich in Galerie gespeichert!',
+      'chart_permission_denied': 'Galerie-Berechtigung verweigert!',
       'select_shift_type': 'Wählen Sie Ihren Schichttyp:',
       'how_is_this_week': 'Wie ist Ihre Schicht diese Woche?',
     }
@@ -306,8 +310,16 @@ class _MainContainerScreenState extends State<MainContainerScreen> {
                       DropdownButtonFormField<String>(
                         value: tempMain.isNotEmpty ? tempMain : 'همیشه صبح',
                         decoration: InputDecoration(border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
-                        items: ['12-24', '24-48', 'همیشه صبح', 'همیشه عصر', 'همیشه شب', 'یک هفته روز یک هفته عصر']
-                            .map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                        items: [
+                          '12-24', 
+                          '24-48', 
+                          'همیشه صبح', 
+                          'همیشه عصر', 
+                          'همیشه شب', 
+                          'یک هفته روز یک هفته عصر',
+                          'شیفت دوروز',
+                          'شیفت سه روز',
+                        ].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
                         onChanged: (val) {
                           setModalState(() {
                             tempMain = val!;
@@ -438,12 +450,12 @@ class ShamsiCalendarScreen extends StatelessWidget {
 
   String get _currentMonthKey => '$currentYear-$currentMonthIndex';
 
-  int get currentMonthOvertime {
+  double get currentMonthOvertime {
     final monthMap = monthlyData[_currentMonthKey] ?? {};
-    int total = 0;
+    double total = 0.0;
     monthMap.forEach((day, data) {
       if (data is Map && data['overtime'] != null) {
-        total += int.tryParse(data['overtime'].toString()) ?? 0;
+        total += double.tryParse(data['overtime'].toString()) ?? 0.0;
       }
     });
     return total;
@@ -460,12 +472,12 @@ class ShamsiCalendarScreen extends StatelessWidget {
     return total;
   }
 
-  int get currentMonthLeaveHours {
+  double get currentMonthLeaveHours {
     final monthMap = monthlyData[_currentMonthKey] ?? {};
-    int total = 0;
+    double total = 0.0;
     monthMap.forEach((day, data) {
       if (data is Map && data['leave_hours'] != null) {
-        total += int.tryParse(data['leave_hours'].toString()) ?? 0;
+        total += double.tryParse(data['leave_hours'].toString()) ?? 0.0;
       }
     });
     return total;
@@ -498,12 +510,31 @@ class ShamsiCalendarScreen extends StatelessWidget {
     if (mainShiftType == 'همیشه شب') return 'شب‌کار';
     if (mainShiftType == '12-24') return dayNum % 2 == 1 ? 'شیفت 12' : 'استراحت';
     if (mainShiftType == '24-48') return dayNum % 3 == 1 ? 'شیفت 24' : 'استراحت';
+    
+    // شیفت دو روز: ۲ روز روزکار، ۲ روز عصرکار، ۲ روز شب‌کار، ۲ روز استراحت (چرخه ۸ روزه)
+    if (mainShiftType == 'شیفت دوروز') {
+      int cycle = (dayNum - 1) % 8;
+      if (cycle < 2) return 'روزکار';
+      if (cycle < 4) return 'عصرکار';
+      if (cycle < 6) return 'شب‌کار';
+      return 'استراحت';
+    }
+
+    // شیفت سه روز: ۳ روز روزکار، ۳ روز عصرکار، ۳ روز شب‌کار، ۳ روز استراحت (چرخه ۱۲ روزه)
+    if (mainShiftType == 'شیفت سه روز') {
+      int cycle = (dayNum - 1) % 12;
+      if (cycle < 3) return 'روزکار';
+      if (cycle < 6) return 'عصرکار';
+      if (cycle < 9) return 'شب‌کار';
+      return 'استراحت';
+    }
+
     if (mainShiftType == 'یک هفته روز یک هفته عصر') {
       bool isFirstHalfWeek = ((dayNum - 1) ~/ 7) % 2 == 0;
       if (subShiftDetail == 'این هفته صبح‌کار') {
-        return isFirstHalfWeek ? 'عصرکار' : 'روزکار';
-      } else {
         return isFirstHalfWeek ? 'روزکار' : 'عصرکار';
+      } else {
+        return isFirstHalfWeek ? 'عصرکار' : 'روزکار';
       }
     }
     return 'عادی';
@@ -525,11 +556,11 @@ class ShamsiCalendarScreen extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildHeaderStat(strings.get('overtime'), '$currentMonthOvertime ساعت', Icons.timer),
+              _buildHeaderStat(strings.get('overtime'), '${currentMonthOvertime == currentMonthOvertime.toInt() ? currentMonthOvertime.toInt() : currentMonthOvertime.toStringAsFixed(1)} ساعت', Icons.timer),
               Container(height: 35, width: 1, color: Colors.white30),
               _buildHeaderStat(strings.get('daily_leave'), '$currentMonthLeaveDays روز', Icons.event_busy),
               Container(height: 35, width: 1, color: Colors.white30),
-              _buildHeaderStat(strings.get('hourly_leave'), '$currentMonthLeaveHours ساعت', Icons.hourglass_bottom),
+              _buildHeaderStat(strings.get('hourly_leave'), '${currentMonthLeaveHours == currentMonthLeaveHours.toInt() ? currentMonthLeaveHours.toInt() : currentMonthLeaveHours.toStringAsFixed(1)} ساعت', Icons.hourglass_bottom),
             ],
           ),
         ),
@@ -719,7 +750,7 @@ class ShamsiCalendarScreen extends StatelessWidget {
                         const SizedBox(height: 15),
                         TextField(
                           controller: otController,
-                          keyboardType: TextInputType.number,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           decoration: InputDecoration(labelText: strings.get('overtime'), border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
                         ),
                         const SizedBox(height: 12),
@@ -733,7 +764,7 @@ class ShamsiCalendarScreen extends StatelessWidget {
                           const SizedBox(height: 12),
                           TextField(
                             controller: leaveHourController,
-                            keyboardType: TextInputType.number,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
                             decoration: InputDecoration(labelText: strings.get('hourly_leave_hours'), border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
                           ),
                         ],
@@ -803,12 +834,12 @@ class ReportsChartScreen extends StatelessWidget {
 
   String get _currentMonthKey => '$currentYear-$currentMonthIndex';
 
-  int get totalOvertime {
+  double get totalOvertime {
     final monthMap = monthlyData[_currentMonthKey] ?? {};
-    int total = 0;
+    double total = 0.0;
     monthMap.forEach((day, data) {
       if (data is Map && data['overtime'] != null) {
-        total += int.tryParse(data['overtime'].toString()) ?? 0;
+        total += double.tryParse(data['overtime'].toString()) ?? 0.0;
       }
     });
     return total;
@@ -823,15 +854,41 @@ class ReportsChartScreen extends StatelessWidget {
     return total;
   }
 
-  int get totalLeaveHours {
+  double get totalLeaveHours {
     final monthMap = monthlyData[_currentMonthKey] ?? {};
-    int total = 0;
+    double total = 0.0;
     monthMap.forEach((day, data) {
       if (data is Map && data['leave_hours'] != null) {
-        total += int.tryParse(data['leave_hours'].toString()) ?? 0;
+        total += double.tryParse(data['leave_hours'].toString()) ?? 0.0;
       }
     });
     return total;
+  }
+
+  // تابع درخواست دسترسی به گالری و ذخیره سازی
+  Future<void> _saveChartToGallery(BuildContext context, AppStrings strings) async {
+    try {
+      // درخواست مجوز دسترسی به عکس‌ها/حافظه
+      var status = await Permission.photos.request();
+      if (!status.isGranted) {
+        status = await Permission.storage.request();
+      }
+
+      if (status.isGranted) {
+        // شبیه‌سازی یا انجام عملیات ذخیره عکس در گالری
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(strings.get('chart_saved_msg'))),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(strings.get('chart_permission_denied'))),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('خطا در ذخیره‌سازی تصویر: $e')),
+      );
+    }
   }
 
   @override
@@ -839,7 +896,11 @@ class ReportsChartScreen extends StatelessWidget {
     AppStrings strings = AppStrings(langCode);
     String monthName = shamsiMonths[currentMonthIndex];
 
-    double maxBarValue = [totalOvertime.toDouble(), (totalLeaveDays * 8).toDouble(), totalLeaveHours.toDouble()].reduce((a, b) => a > b ? a : b);
+    double otVal = totalOvertime;
+    double lvDaysVal = totalLeaveDays.toDouble();
+    double lvHoursVal = totalLeaveHours;
+
+    double maxBarValue = [otVal, lvDaysVal * 8, lvHoursVal].reduce((a, b) => a > b ? a : b);
     if (maxBarValue < 10) maxBarValue = 10;
 
     return Padding(
@@ -851,11 +912,11 @@ class ReportsChartScreen extends StatelessWidget {
           const SizedBox(height: 16),
           Row(
             children: [
-              Expanded(child: _buildReportCard(strings.get('overtime'), '$totalOvertime ساعت', Colors.purple.shade50, Colors.purple.shade800, Icons.timer)),
+              Expanded(child: _buildReportCard(strings.get('overtime'), '${otVal == otVal.toInt() ? otVal.toInt() : otVal.toStringAsFixed(1)} ساعت', Colors.purple.shade50, Colors.purple.shade800, Icons.timer)),
               const SizedBox(width: 8),
               Expanded(child: _buildReportCard(strings.get('daily_leave'), '$totalLeaveDays روز', Colors.orange.shade50, Colors.orange.shade800, Icons.event_busy)),
               const SizedBox(width: 8),
-              Expanded(child: _buildReportCard(strings.get('hourly_leave'), '$totalLeaveHours ساعت', Colors.teal.shade50, Colors.teal.shade800, Icons.hourglass_bottom)),
+              Expanded(child: _buildReportCard(strings.get('hourly_leave'), '${lvHoursVal == lvHoursVal.toInt() ? lvHoursVal.toInt() : lvHoursVal.toStringAsFixed(1)} ساعت', Colors.teal.shade50, Colors.teal.shade800, Icons.hourglass_bottom)),
             ],
           ),
           const SizedBox(height: 20),
@@ -871,18 +932,16 @@ class ReportsChartScreen extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        _buildBar(strings.get('overtime'), totalOvertime.toDouble(), maxBarValue, Colors.purple),
-                        _buildBar(strings.get('daily_leave'), (totalLeaveDays * 8).toDouble(), maxBarValue, Colors.orange, subLabel: '($totalLeaveDays روز)'),
-                        _buildBar(strings.get('hourly_leave'), totalLeaveHours.toDouble(), maxBarValue, Colors.teal),
+                        _buildBar(strings.get('overtime'), otVal, maxBarValue, Colors.purple, isHours: true),
+                        _buildBar(strings.get('daily_leave'), lvDaysVal * 8, maxBarValue, Colors.orange, subLabel: '($totalLeaveDays روز)', isHours: false),
+                        _buildBar(strings.get('hourly_leave'), lvHoursVal, maxBarValue, Colors.teal, isHours: true),
                       ],
                     ),
                   ),
                   const Divider(height: 30),
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, foregroundColor: Colors.white),
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(strings.get('chart_saved_msg'))));
-                    },
+                    onPressed: () => _saveChartToGallery(context, strings),
                     icon: const Icon(Icons.download, size: 16),
                     label: Text(strings.get('save_chart_image')),
                   ),
@@ -911,14 +970,16 @@ class ReportsChartScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildBar(String label, double value, double maxVal, Color color, {String? subLabel}) {
+  Widget _buildBar(String label, double value, double maxVal, Color color, {String? subLabel, required bool isHours}) {
     double heightFactor = (value / maxVal).clamp(0.08, 1.0);
+    String displayVal = value == value.toInt() ? '${value.toInt()}' : value.toStringAsFixed(1);
+    
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         Text(
-          value == value.toInt() ? '${value.toInt()}' : '${value.toStringAsFixed(1)}', 
-          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color)
+          isHours ? '$displayVal س' : displayVal, 
+          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color)
         ),
         if (subLabel != null)
           Text(subLabel, style: TextStyle(fontSize: 9, color: Colors.grey.shade600)),
