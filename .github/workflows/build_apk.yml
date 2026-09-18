@@ -27,6 +27,10 @@ jobs:
           channel: 'stable'
           cache: true
 
+      # در صورت نبود پوشه اندروید، فایل‌های نیتیو android را خودکار می‌سازد
+      - name: Recreate Android Platform
+        run: flutter create . --platforms=android
+
       - name: Get Dependencies
         run: flutter pub get
 
