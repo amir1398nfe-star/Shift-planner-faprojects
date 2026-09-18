@@ -230,7 +230,7 @@ class MainContainerScreen extends StatefulWidget {
   State<MainContainerScreen> createState() => _MainContainerScreenState();
 }
 
-class _MainContainerScreenState extends State<MainContainerScreen> {
+class _MainContainerScreenState extends State<MainContainerScreen> with WidgetsBindingObserver {
   int _currentIndex = 0;
   Map<String, Map<String, dynamic>> monthlyData = {};
   String mainShiftType = '';
@@ -251,7 +251,23 @@ class _MainContainerScreenState extends State<MainContainerScreen> {
   @override
   void initState() {
     super.initState();
+    // اضافه کردن ناظر برای به‌روزرسانی خودکار تاریخ امروز هنگام باز شدن برنامه
+    WidgetsBinding.instance.addObserver(this);
     _loadAllData();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // بازخوانی تاریخ جدید سیستم هنگام بازگشت کاربر به برنامه
+    if (state == AppLifecycleState.resumed) {
+      setState(() {});
+    }
   }
 
   Future<void> _loadAllData() async {
@@ -576,7 +592,6 @@ class ShamsiCalendarScreen extends StatelessWidget {
       Jalali targetSat = getSaturdayOfWeek(targetDate);
       Jalali anchorSat = Jalali(anchorYear, anchorMonth, anchorDay);
 
-      // محاسبه دقیق اختلاف هفته‌ها با تابع floor به جای ~/
       int diffDays = targetSat.julianDayNumber - anchorSat.julianDayNumber;
       int diffWeeks = (diffDays / 7).floor();
 
