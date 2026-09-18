@@ -1,49 +1,35 @@
-name: fresh_project
-description: "Flutter Shift & Leave Management Application"
+name: shift_tracker
+description: "A Flutter application for shift and work management."
 publish_to: 'none'
 
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.2.0 <4.0.0'
+  sdk: '>=3.0.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
-
-  # فونت انلاین بدون نیاز به ذخیره فایل ttf در پروژه
-  google_fonts: ^6.2.1
   cupertino_icons: ^1.0.8
-
-  # تاریخ و تقویم شمسی
-  shamsi_date: ^1.1.1
-
-  # ذخیره‌سازی داده‌ها و مسیرها
-  shared_preferences: ^2.3.2
-  path_provider: ^2.1.4
-
-  # اسکرین‌شات و ذخیره در گالری
+  shared_preferences: ^2.2.3
+  shamsi_date: ^1.0.3
   screenshot: ^3.0.0
   gal: ^2.3.0
+  google_fonts: ^6.2.1
 
-dev_dependencies:
-  flutter_test:
-    sdk: flutter
-
-  flutter_lints: ^3.0.0
-
-flutter:
-  uses-material-design: true
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
   flutter_launcher_icons: ^0.13.1
 
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/icon/app_icon.png
+
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
   image_path: "assets/icon/app_icon.png"
   min_sdk_android: 21
-  # بخش assets مربوط به فونت حذف شد تا گیت‌هاب خطای عدم وجود فایل ندهد.
-  # اگر تصویر یا دارایی دیگری دارید می‌توانید آن را تحت assets مجزا اضافه کنید.
