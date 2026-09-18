@@ -38,6 +38,9 @@ class AppStrings {
       'chart_saved_msg': 'تصویر نمودار با موفقیت در گالری ذخیره شد!',
       'select_shift_type': 'شیفت کاری خود را انتخاب کنید:',
       'how_is_this_week': 'این هفته چطور هستید؟',
+      'unit_hours': 'ساعت',
+      'unit_hours_short': 'س',
+      'unit_days': 'روز',
     },
     'en': {
       'app_title': 'Shift & Work Tracker',
@@ -60,6 +63,9 @@ class AppStrings {
       'chart_saved_msg': 'Chart saved to gallery successfully!',
       'select_shift_type': 'Select your shift type:',
       'how_is_this_week': 'How is your shift this week?',
+      'unit_hours': 'hours',
+      'unit_hours_short': 'h',
+      'unit_days': 'days',
     },
     'de': {
       'app_title': 'Schicht- und Arbeitsplaner',
@@ -82,6 +88,9 @@ class AppStrings {
       'chart_saved_msg': 'Diagramm erfolgreich in Galerie gespeichert!',
       'select_shift_type': 'Wählen Sie Ihren Schichttyp:',
       'how_is_this_week': 'Wie ist Ihre Schicht diese Woche?',
+      'unit_hours': 'Std',
+      'unit_hours_short': 'Std',
+      'unit_days': 'Tage',
     }
   };
 
@@ -530,11 +539,16 @@ class ShamsiCalendarScreen extends StatelessWidget {
     }
 
     if (mainShiftType == 'یک هفته روز یک هفته عصر') {
-      bool isFirstHalfWeek = ((dayNum - 1) ~/ 7) % 2 == 0;
+      // محاسبه شاخص هفته تقویمی از شنبه تا جمعه
+      Jalali firstDayOfMonth = Jalali(currentYear, currentMonthIndex + 1, 1);
+      int firstDayWeekDay = firstDayOfMonth.weekDay; // 1 = شنبه, ..., 7 = جمعه
+      int weekIndex = ((dayNum - 1) + (firstDayWeekDay - 1)) ~/ 7;
+      bool isFirstWeekPattern = (weekIndex % 2 == 0);
+
       if (subShiftDetail == 'این هفته عصر‌کار') {
-        return isFirstHalfWeek ? 'عصرکار' : 'روزکار';
+        return isFirstWeekPattern ? 'عصرکار' : 'روزکار';
       } else {
-        return isFirstHalfWeek ? 'روزکار' : 'عصرکار';
+        return isFirstWeekPattern ? 'روزکار' : 'عصرکار';
       }
     }
     return 'عادی';
@@ -561,11 +575,11 @@ class ShamsiCalendarScreen extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildHeaderStat(strings.get('overtime'), '${currentMonthOvertime == currentMonthOvertime.toInt() ? currentMonthOvertime.toInt() : currentMonthOvertime.toStringAsFixed(1)} ساعت', Icons.timer),
+              _buildHeaderStat(strings.get('overtime'), '${currentMonthOvertime == currentMonthOvertime.toInt() ? currentMonthOvertime.toInt() : currentMonthOvertime.toStringAsFixed(1)} ${strings.get('unit_hours')}', Icons.timer),
               Container(height: 35, width: 1, color: Colors.white30),
-              _buildHeaderStat(strings.get('daily_leave'), '$currentMonthLeaveDays روز', Icons.event_busy),
+              _buildHeaderStat(strings.get('daily_leave'), '$currentMonthLeaveDays ${strings.get('unit_days')}', Icons.event_busy),
               Container(height: 35, width: 1, color: Colors.white30),
-              _buildHeaderStat(strings.get('hourly_leave'), '${currentMonthLeaveHours == currentMonthLeaveHours.toInt() ? currentMonthLeaveHours.toInt() : currentMonthLeaveHours.toStringAsFixed(1)} ساعت', Icons.hourglass_bottom),
+              _buildHeaderStat(strings.get('hourly_leave'), '${currentMonthLeaveHours == currentMonthLeaveHours.toInt() ? currentMonthLeaveHours.toInt() : currentMonthLeaveHours.toStringAsFixed(1)} ${strings.get('unit_hours')}', Icons.hourglass_bottom),
             ],
           ),
         ),
@@ -923,8 +937,12 @@ class _ReportsChartScreenState extends State<ReportsChartScreen> {
     double lvDaysVal = totalLeaveDays.toDouble();
     double lvHoursVal = totalLeaveHours;
 
-    double maxBarValue = [otVal, lvDaysVal * 8, lvHoursVal].reduce((a, b) => a > b ? a : b);
-    if (maxBarValue < 10) maxBarValue = 10;
+    // مقیاس برای ساعات (اضافه‌کار و مرخصی ساعتی)
+    double maxHoursValue = [otVal, lvHoursVal].reduce((a, b) => a > b ? a : b);
+    if (maxHoursValue < 10) maxHoursValue = 10;
+
+    // مقیاس مجزا برای روزها (مرخصی روزانه)
+    double maxDaysValue = lvDaysVal < 10 ? 10 : lvDaysVal;
 
     return Padding(
       padding: const EdgeInsets.all(16.0),
@@ -935,11 +953,11 @@ class _ReportsChartScreenState extends State<ReportsChartScreen> {
           const SizedBox(height: 16),
           Row(
             children: [
-              Expanded(child: _buildReportCard(strings.get('overtime'), '${otVal == otVal.toInt() ? otVal.toInt() : otVal.toStringAsFixed(1)} ساعت', Colors.purple.shade50, Colors.purple.shade800, Icons.timer)),
+              Expanded(child: _buildReportCard(strings.get('overtime'), '${otVal == otVal.toInt() ? otVal.toInt() : otVal.toStringAsFixed(1)} ${strings.get('unit_hours')}', Colors.purple.shade50, Colors.purple.shade800, Icons.timer)),
               const SizedBox(width: 8),
-              Expanded(child: _buildReportCard(strings.get('daily_leave'), '$totalLeaveDays روز', Colors.orange.shade50, Colors.orange.shade800, Icons.event_busy)),
+              Expanded(child: _buildReportCard(strings.get('daily_leave'), '$totalLeaveDays ${strings.get('unit_days')}', Colors.orange.shade50, Colors.orange.shade800, Icons.event_busy)),
               const SizedBox(width: 8),
-              Expanded(child: _buildReportCard(strings.get('hourly_leave'), '${lvHoursVal == lvHoursVal.toInt() ? lvHoursVal.toInt() : lvHoursVal.toStringAsFixed(1)} ساعت', Colors.teal.shade50, Colors.teal.shade800, Icons.hourglass_bottom)),
+              Expanded(child: _buildReportCard(strings.get('hourly_leave'), '${lvHoursVal == lvHoursVal.toInt() ? lvHoursVal.toInt() : lvHoursVal.toStringAsFixed(1)} ${strings.get('unit_hours')}', Colors.teal.shade50, Colors.teal.shade800, Icons.hourglass_bottom)),
             ],
           ),
           const SizedBox(height: 20),
@@ -961,9 +979,9 @@ class _ReportsChartScreenState extends State<ReportsChartScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          _buildBar(strings.get('overtime'), otVal, maxBarValue, Colors.purple, isHours: true),
-                          _buildBar(strings.get('daily_leave'), lvDaysVal * 8, maxBarValue, Colors.orange, subLabel: '($totalLeaveDays روز)', isHours: false),
-                          _buildBar(strings.get('hourly_leave'), lvHoursVal, maxBarValue, Colors.teal, isHours: true),
+                          _buildBar(strings.get('overtime'), otVal, maxHoursValue, Colors.purple, unit: strings.get('unit_hours_short')),
+                          _buildBar(strings.get('daily_leave'), lvDaysVal, maxDaysValue, Colors.orange, unit: strings.get('unit_days')),
+                          _buildBar(strings.get('hourly_leave'), lvHoursVal, maxHoursValue, Colors.teal, unit: strings.get('unit_hours_short')),
                         ],
                       ),
                     ),
@@ -1008,7 +1026,7 @@ class _ReportsChartScreenState extends State<ReportsChartScreen> {
     );
   }
 
-  Widget _buildBar(String label, double value, double maxVal, Color color, {String? subLabel, required bool isHours}) {
+  Widget _buildBar(String label, double value, double maxVal, Color color, {required String unit}) {
     double heightFactor = (value / maxVal).clamp(0.08, 1.0);
     String displayVal = value == value.toInt() ? '${value.toInt()}' : value.toStringAsFixed(1);
     
@@ -1016,11 +1034,9 @@ class _ReportsChartScreenState extends State<ReportsChartScreen> {
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         Text(
-          isHours ? '$displayVal س' : displayVal, 
+          '$displayVal $unit', 
           style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color)
         ),
-        if (subLabel != null)
-          Text(subLabel, style: TextStyle(fontSize: 9, color: Colors.grey.shade600)),
         const SizedBox(height: 4),
         Container(
           width: 38,
