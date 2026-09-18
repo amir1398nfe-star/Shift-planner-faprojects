@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shamsi_date/shamsi_date.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:gal/gal.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'dart:convert';
 
 void main() async {
@@ -140,9 +141,12 @@ class _ShiftTrackerAppSt extends State<ShiftTrackerApp> {
       title: 'Shift Tracker',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        fontFamily: 'Vazirmatn',
+        useMaterial3: true,
         primarySwatch: Colors.deepPurple,
         scaffoldBackgroundColor: const Color(0xFFF8F9FA),
+        textTheme: GoogleFonts.vazirmatnTextTheme(
+          Theme.of(context).textTheme,
+        ),
       ),
       builder: (context, child) {
         return Directionality(
