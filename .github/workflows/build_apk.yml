@@ -1,10 +1,10 @@
-name: Build Android APK for CafeBazaar
+name: Build Flutter Release APK
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ "main", "master" ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ "main", "master" ]
   workflow_dispatch:
 
 jobs:
@@ -15,79 +15,33 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up Java JDK
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
 
       - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+        uses: actions/subosito/flutter-action@v2
         with:
           channel: 'stable'
           cache: true
 
-      - name: Create Fresh Supported Project & Migrate Files
+      - name: Get Dependencies
+        run: flutter pub get
+
+      - name: Generate Keystore for Build
         run: |
-          REPO_DIR=$(pwd)
-          
-          # ساخت پروژه جدید استاندارد
-          flutter create -t app --org com.amir.shiftplanner --project-name shift_planner fresh_project
-          
-          # کپی کردن کدهای دارت کاربر
-          rm -rf fresh_project/lib/*
-          cp -r $REPO_DIR/lib/* fresh_project/lib/
-          
-          # کپی کردن pubspec.yaml اصلی
-          cp $REPO_DIR/pubspec.yaml fresh_project/pubspec.yaml
-          
-          # کپی کردن assets در صورت وجود
-          if [ -d "$REPO_DIR/assets" ]; then
-            cp -r $REPO_DIR/assets fresh_project/assets
-          fi
+          keytool -genkey -v -keystore android/app/key.jks \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -alias key -storepass password -keypass password \
+            -dname "CN=Amir, OU=Dev, O=App, L=Tehran, ST=Tehran, C=IR" || true
 
-          # ورود به پوشه پروژه جدید
-          cd fresh_project
-
-          # اصلاح نام پکیج پلاس و کلاس‌ها
-          sed -i -E 's/image_gallery_saver:.*/image_gallery_saver_plus: ^5.1.1/g' pubspec.yaml
-          find lib/ -type f -name "*.dart" -exec sed -i 's/package:image_gallery_saver\/image_gallery_saver.dart/package:image_gallery_saver_plus\/image_gallery_saver_plus.dart/g' {} + || true
-          find lib/ -type f -name "*.dart" -exec sed -i 's/ImageGallerySaver\./ImageGallerySaverPlus\./g' {} + || true
-
-          # افزودن دسترسی‌ها به اندروید مانیفست
-          sed -i '/<application/i \    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" \/>\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" \/>' android/app/src/main/AndroidManifest.xml
-
-          # ساخت کلید امضا مخصوص کافه بازار
-          keytool -genkeypair -alias shiftplanner -keyalg RSA -keysize 2048 -validity 10000 \
-            -keystore android/app/release.keystore \
-            -dname "CN=Amir, OU=Dev, O=App, L=Tehran, S=Tehran, C=IR" \
-            -storepass "AmirShift123" -keypass "AmirShift123"
-          
-          # ساخت فایل key.properties در مسیر درست (android/) برای امضای خودکار توسط فلاتر
-          cat << 'EOF' > android/key.properties
-          storePassword=AmirShift123
-          keyPassword=AmirShift123
-          keyAlias=shiftplanner
-          storeFile=release.keystore
-          EOF
-
-          # فعال‌سازی استاندارد signingConfigs در android/app/build.gradle.kts با روش سازگار با نسخه‌های جدید
-          BUILD_GRADLE="android/app/build.gradle.kts"
-          if [ -f "$BUILD_GRADLE" ]; then
-            # اضافه کردن تنظیمات signingConfig به بلوک buildTypes.release به صورت ایمن
-            sed -i 's/getByName("release") {/getByName("release") {\n            signingConfig = signingConfigs.getByName("release")/' $BUILD_GRADLE || true
-          fi
-
-          # دریافت پکیج‌ها و ساخت نهایی APK
-          flutter pub get
-          flutter build apk --release --no-tree-shake-icons
-
-          # بازگرداندن فایل خروجی به ریشه مخزن
-          mkdir -p $REPO_DIR/build/app/outputs/flutter-apk/
-          cp build/app/outputs/flutter-apk/app-release.apk $REPO_DIR/build/app/outputs/flutter-apk/app-release.apk
+      - name: Build APK Release
+        run: flutter build apk --release
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: shift-planner-release-apk
+          name: app-release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
