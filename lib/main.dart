@@ -11,6 +11,12 @@ void main() async {
   runApp(const ShiftTrackerApp());
 }
 
+// تابع محاسبه شنبهِ هر هفته
+Jalali getSaturdayOfWeek(Jalali date) {
+  int daysFromSat = date.weekDay - 1; // ۱ = شنبه (۰ روز فاصله)، ۷ = جمعه (۶ روز فاصله)
+  return Jalali.fromJulianDayNumber(date.julianDayNumber - daysFromSat);
+}
+
 // مدیریت متن‌ها و ترجمه‌های برنامه (فارسی، انگلیسی، آلمانی)
 class AppStrings {
   final String langCode;
@@ -37,7 +43,7 @@ class AppStrings {
       'save_chart_image': 'ذخیره نمودار به صورت عکس در گالری',
       'chart_saved_msg': 'تصویر نمودار با موفقیت در گالری ذخیره شد!',
       'select_shift_type': 'شیفت کاری خود را انتخاب کنید:',
-      'how_is_this_week': 'این هفته چطور هستید؟',
+      'how_is_this_week': 'این هفته (شنبه تا جمعه) چطور هستید؟',
       'unit_hours': 'ساعت',
       'unit_hours_short': 'س',
       'unit_days': 'روز',
@@ -62,7 +68,7 @@ class AppStrings {
       'save_chart_image': 'Save Chart as Image to Gallery',
       'chart_saved_msg': 'Chart saved to gallery successfully!',
       'select_shift_type': 'Select your shift type:',
-      'how_is_this_week': 'How is your shift this week?',
+      'how_is_this_week': 'How is your shift this week (Sat to Fri)?',
       'unit_hours': 'hours',
       'unit_hours_short': 'h',
       'unit_days': 'days',
@@ -87,7 +93,7 @@ class AppStrings {
       'save_chart_image': 'Diagramm als Bild in Galerie speichern',
       'chart_saved_msg': 'Diagramm erfolgreich in Galerie gespeichert!',
       'select_shift_type': 'Wählen Sie Ihren Schichttyp:',
-      'how_is_this_week': 'Wie ist Ihre Schicht diese Woche?',
+      'how_is_this_week': 'Wie ist Ihre Schicht diese Woche (Sa bis Fr)?',
       'unit_hours': 'Std',
       'unit_hours_short': 'Std',
       'unit_days': 'Tage',
@@ -230,6 +236,10 @@ class _MainContainerScreenState extends State<MainContainerScreen> {
   String mainShiftType = '';
   String subShiftDetail = '';
   
+  int anchorYear = 1403;
+  int anchorMonth = 1;
+  int anchorDay = 1;
+
   int currentMonthIndex = Jalali.now().month - 1;
   int currentYear = Jalali.now().year;
 
@@ -250,6 +260,8 @@ class _MainContainerScreenState extends State<MainContainerScreen> {
     String? storedMainShift = prefs.getString('main_shift_type');
     String? storedSubShift = prefs.getString('sub_shift_detail');
 
+    Jalali initialSat = getSaturdayOfWeek(Jalali.now());
+
     setState(() {
       if (storedData != null) {
         Map<String, dynamic> decoded = jsonDecode(storedData);
@@ -257,6 +269,9 @@ class _MainContainerScreenState extends State<MainContainerScreen> {
       }
       mainShiftType = storedMainShift ?? '';
       subShiftDetail = storedSubShift ?? '';
+      anchorYear = prefs.getInt('anchor_year') ?? initialSat.year;
+      anchorMonth = prefs.getInt('anchor_month') ?? initialSat.month;
+      anchorDay = prefs.getInt('anchor_day') ?? initialSat.day;
     });
 
     if (mainShiftType.isEmpty) {
@@ -271,6 +286,9 @@ class _MainContainerScreenState extends State<MainContainerScreen> {
     await prefs.setString('saved_monthly_tracker_data', jsonEncode(monthlyData));
     await prefs.setString('main_shift_type', mainShiftType);
     await prefs.setString('sub_shift_detail', subShiftDetail);
+    await prefs.setInt('anchor_year', anchorYear);
+    await prefs.setInt('anchor_month', anchorMonth);
+    await prefs.setInt('anchor_day', anchorDay);
   }
 
   void updateMonthlyData(Map<String, Map<String, dynamic>> newData) {
@@ -290,7 +308,7 @@ class _MainContainerScreenState extends State<MainContainerScreen> {
   void _showShiftSetupWizard() {
     AppStrings strings = AppStrings(widget.langCode);
     String tempMain = mainShiftType.isEmpty ? 'همیشه صبح' : mainShiftType;
-    String tempSub = subShiftDetail;
+    String tempSub = subShiftDetail.isEmpty ? 'این هفته صبح‌کار' : subShiftDetail;
 
     showModalBottomSheet(
       context: context,
@@ -354,9 +372,15 @@ class _MainContainerScreenState extends State<MainContainerScreen> {
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 12)),
                         onPressed: () {
+                          // محاسبه شنبه‌ی دقیق همین هفته جاری به عنوان مبدأ
+                          Jalali currentSat = getSaturdayOfWeek(Jalali.now());
+
                           setState(() {
                             mainShiftType = tempMain;
                             subShiftDetail = tempSub;
+                            anchorYear = currentSat.year;
+                            anchorMonth = currentSat.month;
+                            anchorDay = currentSat.day;
                           });
                           _saveAllData();
                           Navigator.pop(context);
@@ -385,6 +409,9 @@ class _MainContainerScreenState extends State<MainContainerScreen> {
         currentMonthIndex: currentMonthIndex,
         mainShiftType: mainShiftType,
         subShiftDetail: subShiftDetail,
+        anchorYear: anchorYear,
+        anchorMonth: anchorMonth,
+        anchorDay: anchorDay,
         langCode: widget.langCode,
         onDataChanged: updateMonthlyData,
         onMonthChanged: changeMonth,
@@ -432,6 +459,9 @@ class ShamsiCalendarScreen extends StatelessWidget {
   final int currentMonthIndex;
   final String mainShiftType;
   final String subShiftDetail;
+  final int anchorYear;
+  final int anchorMonth;
+  final int anchorDay;
   final String langCode;
   final Function(Map<String, Map<String, dynamic>>) onDataChanged;
   final Function(int, int) onMonthChanged;
@@ -444,6 +474,9 @@ class ShamsiCalendarScreen extends StatelessWidget {
     required this.currentMonthIndex,
     required this.mainShiftType,
     required this.subShiftDetail,
+    required this.anchorYear,
+    required this.anchorMonth,
+    required this.anchorDay,
     required this.langCode,
     required this.onDataChanged,
     required this.onMonthChanged,
@@ -539,16 +572,20 @@ class ShamsiCalendarScreen extends StatelessWidget {
     }
 
     if (mainShiftType == 'یک هفته روز یک هفته عصر') {
-      // محاسبه شاخص هفته تقویمی از شنبه تا جمعه
-      Jalali firstDayOfMonth = Jalali(currentYear, currentMonthIndex + 1, 1);
-      int firstDayWeekDay = firstDayOfMonth.weekDay; // 1 = شنبه, ..., 7 = جمعه
-      int weekIndex = ((dayNum - 1) + (firstDayWeekDay - 1)) ~/ 7;
-      bool isFirstWeekPattern = (weekIndex % 2 == 0);
+      Jalali targetDate = Jalali(currentYear, currentMonthIndex + 1, dayNum);
+      Jalali targetSat = getSaturdayOfWeek(targetDate);
+      Jalali anchorSat = Jalali(anchorYear, anchorMonth, anchorDay);
+
+      // محاسبه دقیق اختلاف هفته‌ها با تابع floor به جای ~/
+      int diffDays = targetSat.julianDayNumber - anchorSat.julianDayNumber;
+      int diffWeeks = (diffDays / 7).floor();
+
+      bool isEvenWeek = diffWeeks.isEven;
 
       if (subShiftDetail == 'این هفته عصر‌کار') {
-        return isFirstWeekPattern ? 'عصرکار' : 'روزکار';
+        return isEvenWeek ? 'عصرکار' : 'روزکار';
       } else {
-        return isFirstWeekPattern ? 'روزکار' : 'عصرکار';
+        return isEvenWeek ? 'روزکار' : 'عصرکار';
       }
     }
     return 'عادی';
@@ -559,7 +596,7 @@ class ShamsiCalendarScreen extends StatelessWidget {
     AppStrings strings = AppStrings(langCode);
 
     Jalali firstDayOfMonth = Jalali(currentYear, currentMonthIndex + 1, 1);
-    int firstDayWeekDay = firstDayOfMonth.weekDay; // 1 = شنبه, ..., 7 = جمعه
+    int firstDayWeekDay = firstDayOfMonth.weekDay; // ۱ = شنبه, ..., ۷ = جمعه
     int leadingEmptyCells = firstDayWeekDay - 1;
     int daysInMonth = firstDayOfMonth.monthLength;
 
@@ -937,11 +974,9 @@ class _ReportsChartScreenState extends State<ReportsChartScreen> {
     double lvDaysVal = totalLeaveDays.toDouble();
     double lvHoursVal = totalLeaveHours;
 
-    // مقیاس برای ساعات (اضافه‌کار و مرخصی ساعتی)
     double maxHoursValue = [otVal, lvHoursVal].reduce((a, b) => a > b ? a : b);
     if (maxHoursValue < 10) maxHoursValue = 10;
 
-    // مقیاس مجزا برای روزها (مرخصی روزانه)
     double maxDaysValue = lvDaysVal < 10 ? 10 : lvDaysVal;
 
     return Padding(
