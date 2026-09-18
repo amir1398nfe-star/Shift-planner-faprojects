@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shamsi_date/shamsi_date.dart';
+import 'package:screenshot/screenshot.dart';
+import 'package:gal/gal.dart';
 import 'dart:convert';
 
 void main() async {
@@ -32,7 +34,7 @@ class AppStrings {
       'daily_note': 'یادداشت روزانه',
       'save_changes': 'ثبت تغییرات',
       'save_chart_image': 'ذخیره نمودار به صورت عکس در گالری',
-      'chart_saved_msg': 'تصویر نمودار با موفقیت ذخیره شد!',
+      'chart_saved_msg': 'تصویر نمودار با موفقیت در گالری ذخیره شد!',
       'select_shift_type': 'شیفت کاری خود را انتخاب کنید:',
       'how_is_this_week': 'این هفته چطور هستید؟',
     },
@@ -215,7 +217,6 @@ class _MainContainerScreenState extends State<MainContainerScreen> {
   String mainShiftType = '';
   String subShiftDetail = '';
   
-  // مقداردهی اولیه پویا و زنده بر اساس تاریخ روز دستگاه
   int currentMonthIndex = Jalali.now().month - 1;
   int currentYear = Jalali.now().year;
 
@@ -494,7 +495,6 @@ class ShamsiCalendarScreen extends StatelessWidget {
     onMonthChanged(y, m);
   }
 
-  // بررسی زنده و پویای تاریخ امروز سیستم برای هایلایت خودکار روز جاری با گذشت هر روز
   bool _isToday(int dayNum) {
     Jalali jNow = Jalali.now();
     return currentYear == jNow.year && 
@@ -527,10 +527,10 @@ class ShamsiCalendarScreen extends StatelessWidget {
 
     if (mainShiftType == 'یک هفته روز یک هفته عصر') {
       bool isFirstHalfWeek = ((dayNum - 1) ~/ 7) % 2 == 0;
-      if (subShiftDetail == 'این هفته صبح‌کار') {
-        return isFirstHalfWeek ? 'روزکار' : 'عصرکار';
-      } else {
+      if (subShiftDetail == 'این هفته عصر‌کار') {
         return isFirstHalfWeek ? 'عصرکار' : 'روزکار';
+      } else {
+        return isFirstHalfWeek ? 'روزکار' : 'عصرکار';
       }
     }
     return 'عادی';
@@ -539,6 +539,11 @@ class ShamsiCalendarScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     AppStrings strings = AppStrings(langCode);
+
+    Jalali firstDayOfMonth = Jalali(currentYear, currentMonthIndex + 1, 1);
+    int firstDayWeekDay = firstDayOfMonth.weekDay; // 1 = شنبه, ..., 7 = جمعه
+    int leadingEmptyCells = firstDayWeekDay - 1;
+    int daysInMonth = firstDayOfMonth.monthLength;
 
     return Column(
       children: [
@@ -617,9 +622,13 @@ class ShamsiCalendarScreen extends StatelessWidget {
               crossAxisSpacing: 5,
               mainAxisSpacing: 5,
             ),
-            itemCount: 31,
+            itemCount: leadingEmptyCells + daysInMonth,
             itemBuilder: (context, index) {
-              int dayNum = index + 1;
+              if (index < leadingEmptyCells) {
+                return const SizedBox.shrink();
+              }
+              
+              int dayNum = index - leadingEmptyCells + 1;
               bool isFriday = (index % 7 == 6);
               bool isTodayFlag = _isToday(dayNum);
               
@@ -812,7 +821,7 @@ class ShamsiCalendarScreen extends StatelessWidget {
   }
 }
 
-class ReportsChartScreen extends StatelessWidget {
+class ReportsChartScreen extends StatefulWidget {
   final Map<String, Map<String, dynamic>> monthlyData;
   final int currentYear;
   final int currentMonthIndex;
@@ -828,10 +837,17 @@ class ReportsChartScreen extends StatelessWidget {
     required this.langCode,
   }) : super(key: key);
 
-  String get _currentMonthKey => '$currentYear-$currentMonthIndex';
+  @override
+  State<ReportsChartScreen> createState() => _ReportsChartScreenState();
+}
+
+class _ReportsChartScreenState extends State<ReportsChartScreen> {
+  final ScreenshotController _screenshotController = ScreenshotController();
+
+  String get _currentMonthKey => '${widget.currentYear}-${widget.currentMonthIndex}';
 
   double get totalOvertime {
-    final monthMap = monthlyData[_currentMonthKey] ?? {};
+    final monthMap = widget.monthlyData[_currentMonthKey] ?? {};
     double total = 0.0;
     monthMap.forEach((day, data) {
       if (data is Map && data['overtime'] != null) {
@@ -842,7 +858,7 @@ class ReportsChartScreen extends StatelessWidget {
   }
 
   int get totalLeaveDays {
-    final monthMap = monthlyData[_currentMonthKey] ?? {};
+    final monthMap = widget.monthlyData[_currentMonthKey] ?? {};
     int total = 0;
     monthMap.forEach((day, data) {
       if (data is Map && data['status'] == 'leave_daily') total += 1;
@@ -851,7 +867,7 @@ class ReportsChartScreen extends StatelessWidget {
   }
 
   double get totalLeaveHours {
-    final monthMap = monthlyData[_currentMonthKey] ?? {};
+    final monthMap = widget.monthlyData[_currentMonthKey] ?? {};
     double total = 0.0;
     monthMap.forEach((day, data) {
       if (data is Map && data['leave_hours'] != null) {
@@ -861,16 +877,43 @@ class ReportsChartScreen extends StatelessWidget {
     return total;
   }
 
-  void _saveChartToGallery(BuildContext context, AppStrings strings) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(strings.get('chart_saved_msg'))),
-    );
+  Future<void> _saveChartToGallery(BuildContext context, AppStrings strings) async {
+    try {
+      bool hasAccess = await Gal.hasAccess();
+      if (!hasAccess) {
+        await Gal.requestAccess();
+      }
+
+      final imageBytes = await _screenshotController.capture(pixelRatio: 3.0);
+      
+      if (imageBytes != null) {
+        await Gal.putImageBytes(imageBytes);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(strings.get('chart_saved_msg')),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('خطا در ذخیره تصویر: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    AppStrings strings = AppStrings(langCode);
-    String monthName = shamsiMonths[currentMonthIndex];
+    AppStrings strings = AppStrings(widget.langCode);
+    String monthName = widget.shamsiMonths[widget.currentMonthIndex];
 
     double otVal = totalOvertime;
     double lvDaysVal = totalLeaveDays.toDouble();
@@ -884,7 +927,7 @@ class ReportsChartScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('$monthName $currentYear', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.deepPurple)),
+          Text('$monthName ${widget.currentYear}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.deepPurple)),
           const SizedBox(height: 16),
           Row(
             children: [
@@ -897,32 +940,47 @@ class ReportsChartScreen extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade300)),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        _buildBar(strings.get('overtime'), otVal, maxBarValue, Colors.purple, isHours: true),
-                        _buildBar(strings.get('daily_leave'), lvDaysVal * 8, maxBarValue, Colors.orange, subLabel: '($totalLeaveDays روز)', isHours: false),
-                        _buildBar(strings.get('hourly_leave'), lvHoursVal, maxBarValue, Colors.teal, isHours: true),
-                      ],
+            child: Screenshot(
+              controller: _screenshotController,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white, 
+                  borderRadius: BorderRadius.circular(16), 
+                  border: Border.all(color: Colors.grey.shade300)
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          _buildBar(strings.get('overtime'), otVal, maxBarValue, Colors.purple, isHours: true),
+                          _buildBar(strings.get('daily_leave'), lvDaysVal * 8, maxBarValue, Colors.orange, subLabel: '($totalLeaveDays روز)', isHours: false),
+                          _buildBar(strings.get('hourly_leave'), lvHoursVal, maxBarValue, Colors.teal, isHours: true),
+                        ],
+                      ),
                     ),
-                  ),
-                  const Divider(height: 30),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, foregroundColor: Colors.white),
-                    onPressed: () => _saveChartToGallery(context, strings),
-                    icon: const Icon(Icons.download, size: 16),
-                    label: Text(strings.get('save_chart_image')),
-                  ),
-                ],
+                  ],
+                ),
               ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepPurple, 
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () => _saveChartToGallery(context, strings),
+              icon: const Icon(Icons.download, size: 18),
+              label: Text(strings.get('save_chart_image'), style: const TextStyle(fontWeight: FontWeight.bold)),
             ),
           ),
         ],
