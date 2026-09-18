@@ -1,19 +1,10 @@
-name: shift_planner
-description: "A new Flutter project for work shift and leave management."
+name: shift_tracker
+description: A new Flutter project.
 publish_to: 'none'
 version: 1.0.0+1
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
-
-dependencies:
-  flutter:
-    sdk: flutter
-  shamsi_date: ^1.1.1
-  screenshot: ^3.0.0
-  image_gallery_saver_plus: ^5.1.1
-  shared_preferences: ^2.5.5
-  fl_chart: ^0.66.2
 
 dependencies:
   flutter:
@@ -31,3 +22,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  fonts:
+    - family: Vazirmatn
+      fonts:
+        - asset: assets/fonts/Vazirmatn-Regular.ttf
