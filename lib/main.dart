@@ -215,6 +215,7 @@ class _MainContainerScreenState extends State<MainContainerScreen> {
   String mainShiftType = '';
   String subShiftDetail = '';
   
+  // مقداردهی اولیه پویا و زنده بر اساس تاریخ روز دستگاه
   int currentMonthIndex = Jalali.now().month - 1;
   int currentYear = Jalali.now().year;
 
@@ -493,6 +494,7 @@ class ShamsiCalendarScreen extends StatelessWidget {
     onMonthChanged(y, m);
   }
 
+  // بررسی زنده و پویای تاریخ امروز سیستم برای هایلایت خودکار روز جاری با گذشت هر روز
   bool _isToday(int dayNum) {
     Jalali jNow = Jalali.now();
     return currentYear == jNow.year && 
