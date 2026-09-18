@@ -40,6 +40,12 @@ jobs:
       - name: Build APK
         run: flutter build apk --release
 
+      - name: Create Release Keystore & Sign APK
+        run: |
+          keytool -genkey -v -keystore release.keystore -alias shift_key -keyalg RSA -keysize 2048 -validity 10000 -storepass 12345678 -keypass 12345678 -dname "CN=ShiftTracker, OU=Dev, O=App, L=Tehran, C=IR"
+          BUILD_TOOLS_VERSION=$(ls $ANDROID_HOME/build-tools | tail -n 1)
+          $ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/apksigner sign --ks release.keystore --ks-pass pass:12345678 --key-pass pass:12345678 build/app/outputs/flutter-apk/app-release.apk
+
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
