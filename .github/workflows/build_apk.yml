@@ -1,4 +1,4 @@
-name: Build Flutter Release APK
+name: Build Flutter APK
 
 on:
   push:
@@ -15,7 +15,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up Java JDK
+      - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
@@ -24,28 +24,21 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.x'
           channel: 'stable'
           cache: true
 
-      # در صورت نبود پوشه اندروید، فایل‌های نیتیو android را خودکار می‌سازد
-      - name: Recreate Android Platform
-        run: flutter create . --platforms=android
-
-      - name: Get Dependencies
+      - name: Install Dependencies
         run: flutter pub get
 
-      - name: Generate Keystore for Build
-        run: |
-          keytool -genkey -v -keystore android/app/key.jks \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -alias key -storepass password -keypass password \
-            -dname "CN=Amir, OU=Dev, O=App, L=Tehran, ST=Tehran, C=IR" || true
+      - name: Generate App Icon
+        run: dart run flutter_launcher_icons
 
-      - name: Build APK Release
+      - name: Build APK
         run: flutter build apk --release
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-apk
+          name: shift-tracker-apk
           path: build/app/outputs/flutter-apk/app-release.apk
